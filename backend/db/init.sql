@@ -204,6 +204,60 @@ CREATE TABLE IF NOT EXISTS crm_lead (
     KEY idx_status (status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='线索';
 
+-- ---------------------------------------------------------------- 客户
+-- 客户 = 已转化的企业实体，商机/订单/回款的挂载点
+-- status：1 正常 / 2 公海 / 3 已合并（已合并不出现在默认列表，merged_to_id 指向合并目标）
+CREATE TABLE IF NOT EXISTS crm_customer (
+    id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    name             VARCHAR(128)    NOT NULL COMMENT '客户名称',
+    credit_code      VARCHAR(32)     NULL COMMENT '统一社会信用代码',
+    industry         TINYINT         NULL COMMENT '行业字典值（CustomerDicts）',
+    scale            TINYINT         NULL COMMENT '规模字典值',
+    region           TINYINT         NULL COMMENT '区域字典值',
+    level            TINYINT         NULL COMMENT '客户级别字典值',
+    status           TINYINT         NOT NULL DEFAULT 1 COMMENT '1 正常 2 公海 3 已合并',
+    owner_id         BIGINT UNSIGNED NULL COMMENT '负责人，NULL 表示公海',
+    dept_id          BIGINT UNSIGNED NULL COMMENT '归属部门',
+    merged_to_id     BIGINT UNSIGNED NULL COMMENT '合并目标客户 ID（status=3 时有效）',
+    last_follow_time DATETIME        NULL COMMENT '最近跟进时间（公海回收依据）',
+    remark           VARCHAR(500)    NULL COMMENT '备注',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_name (name),
+    KEY idx_credit_code (credit_code),
+    KEY idx_owner_status (owner_id, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='客户';
+
+-- ---------------------------------------------------------------- 联系人
+-- 主联系人唯一性：应用层 + 事务保证（先清后设）。
+-- 理由：(customer_id, is_primary) 唯一索引会把同客户下多条 is_primary=0 的普通联系人判重；
+-- MySQL 无部分索引，函数索引（CASE WHEN）可解但可读性/可移植性差；
+-- CRM 并发量下「事务内先清后设 + 行锁」即可保证同一客户主联系人唯一。
+CREATE TABLE IF NOT EXISTS crm_contact (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    customer_id BIGINT UNSIGNED NOT NULL COMMENT '所属客户 ID',
+    name        VARCHAR(64)     NOT NULL COMMENT '联系人姓名',
+    phone       VARCHAR(32)     NULL COMMENT '手机号',
+    email       VARCHAR(128)    NULL,
+    position    VARCHAR(64)     NULL COMMENT '职位',
+    is_primary  TINYINT         NOT NULL DEFAULT 0 COMMENT '1 主联系人（同客户唯一，应用层保证）',
+    remark      VARCHAR(500)    NULL,
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_customer_id (customer_id),
+    KEY idx_phone (phone)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='联系人';
+
 -- =====================================================================
 -- 初始数据：admin / admin123（仅开发环境，上线前改密）
 -- 密码为 BCrypt(cost=10)，与 SecurityConfig 的 BCryptPasswordEncoder 匹配
@@ -238,5 +292,8 @@ VALUES
     (8, 3, 'SystemLoginLog',   '登录日志', 'menu',    'system:loginlog:list','/system/login-log', 'system/login-log/index',  'lucide:key-round',       50, 1),
     (9, 3, 'SystemOperLog',    '操作日志', 'menu',    'system:operlog:list','/system/oper-log',   'system/oper-log/index',   'lucide:scroll-text',     60, 1),
     (10, 0, 'LeadManage',      '线索管理', 'catalog', NULL,                '/lead',               NULL,                      'lucide:contact',         50, 1),
-    (11, 10, 'LeadList',       '线索列表', 'menu',    'crm:lead:list',     '/lead/list',          'lead/list',               'lucide:user-plus',       10, 1)
+    (11, 10, 'LeadList',       '线索列表', 'menu',    'crm:lead:list',     '/lead/list',          'lead/list',               'lucide:user-plus',       10, 1),
+    (12, 0, 'CustomerManage',  '客户管理', 'catalog', NULL,                '/customer',           NULL,                      'lucide:building-2',      40, 1),
+    (13, 12, 'CustomerList',   '客户列表', 'menu',    'crm:customer:list', '/customer/list',      'customer/list',           'lucide:building',        10, 1),
+    (14, 12, 'ContactList',    '联系人列表', 'menu',  'crm:contact:list',  '/customer/contact',   'contact/list',            'lucide:users',           20, 1)
 ON DUPLICATE KEY UPDATE title = VALUES(title), status = VALUES(status);

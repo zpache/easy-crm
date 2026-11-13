@@ -111,6 +111,16 @@ Java 25 · Spring Boot 4.1.2 · MyBatis-Plus 3.5.18（`mybatis-plus-spring-boot4
 - 公海：`/leads/{id}/to-pool`（置空 owner）、`/leads/{id}/claim`（领取）；自动回收定时任务骨架 `LeadRecycleTask`（cron：application.yml `easy-crm.lead.recycle-cron`，默认每天 2 点；天数 `easy-crm.lead.recycle-days`，默认 15）
 - Excel 导入 `POST /leads/import`：EasyExcel 流式解析（模板列：线索名称|联系人|手机号|邮箱|来源|备注），逐行校验、错误行带行号集中返回，单行失败不中断
 
+### 客户/联系人管理（modules/customer、modules/contact，表 crm_customer / crm_contact）
+
+- 客户查重：名称 + 信用代码组合，重复阻断并提示已存在客户 ID（CustomerServiceImpl.findDuplicate）
+- 合并 `POST /customers/merge`：事务内迁移联系人、线索转化关联（商机/跟进 TODO 轮次 3/4），source 标记已合并并退出默认列表
+- 360 视图 `GET /customers/{id}/360`：固定 2 次查询（客户 + 联系人），商机/跟进返回空数组待后续填充
+- 联系人：挂在客户下；主联系人唯一性用「事务内先清后设」（(customer_id,is_primary) 唯一索引会误伤多条普通联系人，DDL 注释有说明）
+- 占位服务已转真实：CustomerService/ContactService 接口签名不变，线索转化真实落库（客户查重失败整笔回滚并提示走关联已有）
+- 公海：与线索规则独立配置（easy-crm.customer.recycle-days 默认 30，cron recycle-cron 默认每天 02:30）
+- 行级数据权限：crm_customer 已注册；联系人可见性随客户
+
 ## 运行
 
 ```bash

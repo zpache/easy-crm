@@ -26,7 +26,13 @@ public final class PermissionCodes {
 
             // 线索管理
             "crm:lead:list", "crm:lead:create", "crm:lead:update",
-            "crm:lead:convert", "crm:lead:import", "crm:lead:to-pool", "crm:lead:claim"
+            "crm:lead:convert", "crm:lead:import", "crm:lead:to-pool", "crm:lead:claim",
+
+            // 客户 / 联系人管理
+            "crm:customer:list", "crm:customer:create", "crm:customer:update",
+            "crm:customer:merge", "crm:customer:to-pool", "crm:customer:claim",
+            "crm:contact:list", "crm:contact:create", "crm:contact:update",
+            "crm:contact:delete", "crm:contact:primary"
     );
 
     private PermissionCodes() {

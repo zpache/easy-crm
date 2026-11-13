@@ -16,7 +16,9 @@ import com.easykits.crm.mapper.LeadMapper;
 import com.easykits.crm.mapper.SysDeptMapper;
 import com.easykits.crm.mapper.SysUserMapper;
 import com.easykits.crm.modules.contact.ContactService;
+import com.easykits.crm.modules.contact.dto.ContactInfo;
 import com.easykits.crm.modules.customer.CustomerService;
+import com.easykits.crm.modules.customer.dto.CustomerInfo;
 import com.easykits.crm.modules.lead.constant.LeadSource;
 import com.easykits.crm.modules.lead.constant.LeadStatus;
 import com.easykits.crm.modules.lead.dto.ConvertForm;
@@ -180,28 +182,39 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
             throw new BizException("当前状态(%s)不可转化".formatted(status.label()));
         }
 
-        // 1. 客户：创建或关联，均可选
+        // 1. 客户：创建或关联，均可选。真实创建（含名称查重，重复则整笔回滚并提示走关联已有）
         Long customerId = null;
         if (Boolean.TRUE.equals(form.getCreateCustomer())) {
             ConvertForm.CustomerInfo info = form.getCustomerInfo();
             if (info == null || !StringUtils.hasText(info.getName())) {
                 throw new BizException("选择创建客户时，客户名称必填");
             }
-            customerId = customerService.create(new CustomerService.CustomerInfo(
-                    info.getName(), info.getPhone(), info.getEmail(), info.getAddress()));
+            CustomerInfo customerInfo = new CustomerInfo();
+            customerInfo.setName(info.getName());
+            customerInfo.setPhone(info.getPhone());
+            customerInfo.setEmail(info.getEmail());
+            customerInfo.setAddress(info.getAddress());
+            customerId = customerService.create(customerInfo, lead.getOwnerId(), lead.getDeptId());
         } else if (form.getCustomerId() != null) {
             customerId = customerService.linkExisting(form.getCustomerId());
         }
 
-        // 2. 联系人：创建或关联，均可选
+        // 2. 联系人：创建或关联，均可选；联系人必须挂在客户下
         Long contactId = null;
         if (Boolean.TRUE.equals(form.getCreateContact())) {
             ConvertForm.ContactInfo info = form.getContactInfo();
             if (info == null || !StringUtils.hasText(info.getName())) {
                 throw new BizException("选择创建联系人时，联系人姓名必填");
             }
-            contactId = contactService.create(new ContactService.ContactInfo(
-                    info.getName(), info.getPhone(), info.getEmail(), info.getPosition()));
+            if (customerId == null) {
+                throw new BizException("创建联系人前必须先创建或选择客户");
+            }
+            ContactInfo contactInfo = new ContactInfo();
+            contactInfo.setName(info.getName());
+            contactInfo.setPhone(info.getPhone());
+            contactInfo.setEmail(info.getEmail());
+            contactInfo.setPosition(info.getPosition());
+            contactId = contactService.create(customerId, contactInfo);
         } else if (form.getContactId() != null) {
             contactId = contactService.linkExisting(form.getContactId());
         }

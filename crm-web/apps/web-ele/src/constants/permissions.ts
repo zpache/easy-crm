@@ -166,3 +166,20 @@ export const CRM_PERMISSIONS = {
   leadToPool: 'crm:lead:to-pool',
   leadUpdate: 'crm:lead:update',
 } as const;
+
+export const CUSTOMER_PERMISSIONS = {
+  claim: 'crm:customer:claim',
+  create: 'crm:customer:create',
+  list: 'crm:customer:list',
+  merge: 'crm:customer:merge',
+  toPool: 'crm:customer:to-pool',
+  update: 'crm:customer:update',
+} as const;
+
+export const CONTACT_PERMISSIONS = {
+  create: 'crm:contact:create',
+  delete: 'crm:contact:delete',
+  list: 'crm:contact:list',
+  primary: 'crm:contact:primary',
+  update: 'crm:contact:update',
+} as const;

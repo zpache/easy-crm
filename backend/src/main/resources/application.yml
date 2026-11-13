@@ -59,6 +59,11 @@ easy-crm:
     recycle-days: 15
     # cron 配置位置（默认每天凌晨 2 点）
     recycle-cron: "0 0 2 * * ?"
+  customer:
+    # 客户公海自动回收（规则独立于线索）：正常状态且无跟进超过 N 天回退公海
+    recycle-days: 30
+    # cron 配置位置（默认每天 02:30，与线索回收错峰）
+    recycle-cron: "0 30 2 * * ?"
 
 # 日志级别
 logging:
