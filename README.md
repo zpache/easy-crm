@@ -17,7 +17,7 @@ easy-crm/
 │       ├── CrmApplication.java
 │       ├── common/             # 统一响应 / 异常 / 登录上下文 / 行级数据权限
 │       ├── config/             # MyBatis-Plus 插件、审计字段填充、Jackson 格式
-│       └── (业务模块按 com.easykits.crm.{module}.{controller|service|mapper|entity|dto|vo} 落地)
+│       └── (业务模块按 cn.easykits.crm.{module}.{controller|service|mapper|entity|dto|vo} 落地)
 ├── crm-web/                    # 前端（Vben Admin monorepo，应用在 apps/web-ele）
 └── db/                         # 数据库脚本（待补充）
 ```

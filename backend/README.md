@@ -2,7 +2,7 @@
 
 Java 25 · Spring Boot 4.1.2 · MyBatis-Plus 3.5.18（`mybatis-plus-spring-boot4-starter` + `mybatis-plus-jsqlparser`）· MySQL 8.4（utf8mb4 / InnoDB）。
 
-单模块工程，按业务域分包：`com.easykits.crm.{module}.{controller|service|mapper|entity|dto|vo}`。
+单模块工程，按业务域分包：`cn.easykits.crm.{module}.{controller|service|mapper|entity|dto|vo}`。
 
 ## 依赖清单（pom.xml）
 
@@ -130,4 +130,4 @@ mvn compile          # 编译验证
 MYSQL_PASSWORD=xxx mvn spring-boot:run
 ```
 
-配置：`application.yml`（数据源 / MP / 日志级别），数据库密码经 `MYSQL_PASSWORD` 环境变量或 gitignore 的 `application-local.yml` 注入；SQL 日志由 `com.easykits.crm.**.mapper: DEBUG` 控制。
+配置：`application.yml`（数据源 / MP / 日志级别），数据库密码经 `MYSQL_PASSWORD` 环境变量或 gitignore 的 `application-local.yml` 注入；SQL 日志由 `cn.easykits.crm.**.mapper: DEBUG` 控制。

@@ -73,8 +73,8 @@ logging:
   level:
     root: INFO
     # 业务代码：DEBUG 时配合 log-impl 输出 SQL 明细，排查数据权限注入效果时调到这里
-    com.easykits.crm: INFO
-    com.easykits.crm.**.mapper: DEBUG
+    cn.easykits.crm: INFO
+    cn.easykits.crm.**.mapper: DEBUG
     org.springframework.web: INFO
     org.springframework.jdbc: WARN
     com.baomidou.mybatisplus: WARN

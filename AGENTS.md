@@ -21,6 +21,6 @@
 
 ## 项目结构
 
-- `backend/`：Java 25 + Spring Boot 4.1.2 + MyBatis-Plus 3.5.18，单模块 `com.easykits.crm`
+- `backend/`：Java 25 + Spring Boot 4.1.2 + MyBatis-Plus 3.5.18，单模块 `cn.easykits.crm`
 - `crm-web/`：Vben Admin 5.7.0（web-ele），pnpm monorepo
 - `backend/db/init.sql`：建表 + 初始数据（admin/admin123，仅开发环境）

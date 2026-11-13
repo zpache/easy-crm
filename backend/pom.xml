@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.easykits</groupId>
+    <groupId>cn.easykits</groupId>
     <artifactId>easy-crm-backend</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
