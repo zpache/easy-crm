@@ -236,5 +236,7 @@ VALUES
     (6, 3, 'SystemRole',       '角色管理', 'menu',    'system:role:list',  '/system/role',        'system/role/list',        'lucide:user-check',      30, 1),
     (7, 3, 'SystemMenu',       '菜单管理', 'menu',    'system:menu:list',  '/system/menu',        'system/menu/list',        'lucide:menu',            40, 1),
     (8, 3, 'SystemLoginLog',   '登录日志', 'menu',    'system:loginlog:list','/system/login-log', 'system/login-log/index',  'lucide:key-round',       50, 1),
-    (9, 3, 'SystemOperLog',    '操作日志', 'menu',    'system:operlog:list','/system/oper-log',   'system/oper-log/index',   'lucide:scroll-text',     60, 1)
+    (9, 3, 'SystemOperLog',    '操作日志', 'menu',    'system:operlog:list','/system/oper-log',   'system/oper-log/index',   'lucide:scroll-text',     60, 1),
+    (10, 0, 'LeadManage',      '线索管理', 'catalog', NULL,                '/lead',               NULL,                      'lucide:contact',         50, 1),
+    (11, 10, 'LeadList',       '线索列表', 'menu',    'crm:lead:list',     '/lead/list',          'lead/list',               'lucide:user-plus',       10, 1)
 ON DUPLICATE KEY UPDATE title = VALUES(title), status = VALUES(status);

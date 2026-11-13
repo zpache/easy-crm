@@ -156,3 +156,13 @@ export const SYSTEM_PERMISSIONS = {
   userStatus: 'system:user:status',
   userUpdate: 'system:user:update',
 } as const;
+
+export const CRM_PERMISSIONS = {
+  leadClaim: 'crm:lead:claim',
+  leadConvert: 'crm:lead:convert',
+  leadCreate: 'crm:lead:create',
+  leadImport: 'crm:lead:import',
+  leadList: 'crm:lead:list',
+  leadToPool: 'crm:lead:to-pool',
+  leadUpdate: 'crm:lead:update',
+} as const;
