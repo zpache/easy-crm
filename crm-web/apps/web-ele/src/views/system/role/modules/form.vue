@@ -53,6 +53,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     ].map((key) => Number(key));
     const payload = {
       code: values.code,
+      dataScope: values.dataScope ?? 1,
       name: values.name,
       permissions,
       remark: values.remark,
@@ -83,6 +84,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (data?.id) {
       formApi.setValues({
         code: data.code,
+        dataScope: data.dataScope ?? 1,
         name: data.name,
         remark: data.remark,
         sort: data.sort,

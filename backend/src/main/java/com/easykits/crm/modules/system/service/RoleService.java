@@ -139,13 +139,16 @@ public class RoleService extends ServiceImpl<SysRoleMapper, SysRole> {
     private void applyForm(SysRole role, RoleForm form) {
         role.setName(form.name());
         role.setCode(form.code());
+        // 数据范围：1 本人 / 2 本部门 / 3 本部门及下级 / 4 全部；不传默认最严格的本人
+        role.setDataScope(form.dataScope() == null ? 1 : form.dataScope());
         role.setSort(form.sort() == null ? 0 : form.sort());
         role.setStatus(form.status() == null ? 1 : form.status());
         role.setRemark(form.remark());
     }
 
     private RoleVO toVO(SysRole role, List<Long> permissions) {
-        return new RoleVO(role.getId(), role.getName(), role.getCode(), role.getSort(),
-                role.getStatus(), role.getRemark(), role.getCreateTime(), permissions, role.getVersion());
+        return new RoleVO(role.getId(), role.getName(), role.getCode(), role.getDataScope(),
+                role.getSort(), role.getStatus(), role.getRemark(), role.getCreateTime(),
+                permissions, role.getVersion());
     }
 }

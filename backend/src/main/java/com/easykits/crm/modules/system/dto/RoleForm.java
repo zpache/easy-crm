@@ -11,6 +11,7 @@ import java.util.List;
  *
  * @param name        角色名称
  * @param code        角色标识（ADMIN / OPERATOR 等），会作为 Spring Security 的 authority
+ * @param dataScope   行级数据权限范围：1 本人 / 2 本部门 / 3 本部门及下级 / 4 全部
  * @param sort        排序值
  * @param status      1 正常，0 禁用
  * @param remark      备注
@@ -24,6 +25,8 @@ public record RoleForm(
         @NotBlank(message = "角色标识不能为空")
         @Pattern(regexp = "^[A-Z][A-Z0-9_]{1,49}$", message = "角色标识需为大写字母、数字或下划线，且以字母开头")
         String code,
+
+        Integer dataScope,
 
         Integer sort,
 

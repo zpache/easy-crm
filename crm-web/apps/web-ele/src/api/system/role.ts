@@ -6,6 +6,8 @@ export namespace SystemRoleApi {
   export interface SystemRole {
     [key: string]: any;
     code: string;
+    /** 数据范围：1 本人 / 2 本部门 / 3 本部门及下级 / 4 全部 */
+    dataScope?: number;
     createdAt?: string;
     id: number;
     name: string;

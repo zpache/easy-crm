@@ -41,6 +41,23 @@ export function useFormSchema(): VbenFormSchema[] {
       label: $t('system.role.sort'),
     },
     {
+      component: 'Select',
+      componentProps: {
+        allowClear: false,
+        class: 'w-full',
+        options: [
+          { label: '仅本人', value: 1 },
+          { label: '本部门', value: 2 },
+          { label: '本部门及下级', value: 3 },
+          { label: '全部', value: 4 },
+        ],
+      },
+      defaultValue: 1,
+      fieldName: 'dataScope',
+      help: '行级数据权限：控制该角色用户能看到哪些范围的数据',
+      label: '数据范围',
+    },
+    {
       component: 'RadioGroup',
       componentProps: {
         buttonStyle: 'solid',
