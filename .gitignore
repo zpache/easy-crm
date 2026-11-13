@@ -1,0 +1,36 @@
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+.history
+
+# ===== Java / Maven（backend） =====
+target/
+*.class
+*.jar
+!.mvn/wrapper/*.jar
+logs/
+*.log
+
+# 本机私有配置（数据库密码等），严禁入库
+application-local.yml
+backend/src/main/resources/application-local.yml
+
+# ===== Node / 前端（crm-web，子目录已有 .gitignore，这里兜底） =====
+node_modules/
+dist/
+.turbo/
+.cache/
+.eslintcache
+.stylelintcache
+.nitro/
+.output/
+coverage/
+
+# ===== 环境变量（只忽略含密钥的本地变体；.env 本体需要入库） =====
+.env.local
+.env.*.local
