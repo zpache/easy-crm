@@ -169,6 +169,42 @@ CREATE TABLE IF NOT EXISTS sys_oper_log (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='操作日志';
 
 -- =====================================================================
+-- CRM 业务表
+-- =====================================================================
+
+-- ---------------------------------------------------------------- 线索
+-- 线索 = 尚未验证的潜在客户，独立于客户体系；owner_id 为空表示在公海
+CREATE TABLE IF NOT EXISTS crm_lead (
+    id                       BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    name                     VARCHAR(128)    NOT NULL COMMENT '线索名称/公司名',
+    contact_name             VARCHAR(64)     NULL COMMENT '联系人姓名',
+    phone                    VARCHAR(32)     NULL COMMENT '手机号（业务层全局唯一）',
+    email                    VARCHAR(128)    NULL COMMENT '邮箱（业务层全局唯一）',
+    source                   TINYINT         NULL COMMENT '来源字典值，见 LeadSource 常量类（后续接字典表）',
+    status                   TINYINT         NOT NULL DEFAULT 0 COMMENT '状态：0 新建 1 跟进中 2 已验证 3 不合格',
+    owner_id                 BIGINT UNSIGNED NULL COMMENT '负责人（sys_user.id），NULL 表示公海',
+    dept_id                  BIGINT UNSIGNED NULL COMMENT '归属部门（sys_dept.id）',
+    remark                   VARCHAR(500)    NULL COMMENT '备注',
+    converted_customer_id    BIGINT UNSIGNED NULL COMMENT '转化生成的客户 ID',
+    converted_contact_id     BIGINT UNSIGNED NULL COMMENT '转化生成的联系人 ID',
+    converted_opportunity_id BIGINT UNSIGNED NULL COMMENT '转化生成的商机 ID',
+    last_follow_time         DATETIME        NULL COMMENT '最近跟进时间（公海回收依据）',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    -- phone / email 唯一性在业务层校验（逻辑删除表不宜用 DB 唯一索引，否则已删记录会占用号码）
+    KEY idx_phone (phone),
+    KEY idx_email (email),
+    KEY idx_owner_status (owner_id, status),
+    KEY idx_name (name),
+    KEY idx_status (status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='线索';
+
+-- =====================================================================
 -- 初始数据：admin / admin123（仅开发环境，上线前改密）
 -- 密码为 BCrypt(cost=10)，与 SecurityConfig 的 BCryptPasswordEncoder 匹配
 -- =====================================================================

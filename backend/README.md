@@ -69,6 +69,8 @@ Java 25 · Spring Boot 4.1.2 · MyBatis-Plus 3.5.18（`mybatis-plus-spring-boot4
 | `DataScopeTableRegistry` | 表注册表：登记哪些业务表参与行级过滤 |
 | `DataScopeHandler` | 实现 MP 的 `MultiDataPermissionHandler`，按表逐个向 WHERE 注入条件 |
 
+已接入：`crm_lead`（线索，owner_id + dept_id）。
+
 注入规则（列名带表别名限定，多表 join 不歧义）：
 
 | 数据范围 | 注入条件 |
@@ -97,6 +99,17 @@ Java 25 · Spring Boot 4.1.2 · MyBatis-Plus 3.5.18（`mybatis-plus-spring-boot4
 2. **DEPT_AND_CHILD 子树 SQL**：当前按「sys_dept.pid 指向父部门、根 pid=0」编写递归 CTE；若实际 sys_dept 用 ancestors 路径列，改为 `find_in_set(deptId, ancestors)` 单层子查询。
 3. **豁免清单**：定时任务、跨部门报表等场景可按 mappedStatementId 在 `DataScopeHandler.getSqlSegment` 增加白名单。
 4. **fail closed**：`buildCondition` 缺列、`parse` 失败时当前仅告警放行，接入后改为抛 BizException。
+
+## 业务模块
+
+### 线索管理（modules/lead，表 crm_lead）
+
+- 状态机：新建(0) → 跟进中(1) → 已验证(2)，不合格(3) 可从 0/1 进入；只能前进，进入「已验证」只能走转化接口（`LeadStatus`）
+- 来源字典：`LeadSource` 常量类（官网/电话/广告投放/客户转介绍/展会活动/其他），后续迁字典表
+- 查重：手机号 / 邮箱业务层全局唯一；公司名（name）重复仅提示不阻断（VO 的 companyDuplicate + duplicates）
+- 转化 `POST /leads/{id}/convert`：`@Transactional` 内创建/关联客户、联系人（均可选）+ 必须创建商机，成功后回写 converted_* 三字段并置已验证；客户/联系人/商机表轮次 3 建立，当前为占位服务（伪 ID、不写库），接口签名与事务边界不变
+- 公海：`/leads/{id}/to-pool`（置空 owner）、`/leads/{id}/claim`（领取）；自动回收定时任务骨架 `LeadRecycleTask`（cron：application.yml `easy-crm.lead.recycle-cron`，默认每天 2 点；天数 `easy-crm.lead.recycle-days`，默认 15）
+- Excel 导入 `POST /leads/import`：EasyExcel 流式解析（模板列：线索名称|联系人|手机号|邮箱|来源|备注），逐行校验、错误行带行号集中返回，单行失败不中断
 
 ## 运行
 

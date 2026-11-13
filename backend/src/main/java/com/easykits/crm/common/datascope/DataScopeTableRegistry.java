@@ -27,6 +27,8 @@ public class DataScopeTableRegistry {
     private final Map<String, DataScopeTable> tables = new HashMap<>();
 
     public DataScopeTableRegistry() {
+        // 行级数据权限已接入的表（接入新表在此登记，见类注释）
+        register(DataScopeTable.of("crm_lead")); // 线索表：owner_id + dept_id
         // TODO（业务模块落地后逐张登记，示例）：
         // register(DataScopeTable.of("crm_customer"));   // 客户表：owner_id + dept_id
         // register(DataScopeTable.of("crm_contact"));    // 联系人表：owner_id + dept_id
