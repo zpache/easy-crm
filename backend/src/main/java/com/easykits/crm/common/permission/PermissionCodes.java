@@ -32,7 +32,11 @@ public final class PermissionCodes {
             "crm:customer:list", "crm:customer:create", "crm:customer:update",
             "crm:customer:merge", "crm:customer:to-pool", "crm:customer:claim",
             "crm:contact:list", "crm:contact:create", "crm:contact:update",
-            "crm:contact:delete", "crm:contact:primary"
+            "crm:contact:delete", "crm:contact:primary",
+
+            // 商机管理
+            "crm:opportunity:list", "crm:opportunity:create", "crm:opportunity:update",
+            "crm:opportunity:stage", "crm:opportunity:forecast", "crm:opportunity:stage-manage"
     );
 
     private PermissionCodes() {

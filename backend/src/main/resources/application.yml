@@ -64,6 +64,9 @@ easy-crm:
     recycle-days: 30
     # cron 配置位置（默认每天 02:30，与线索回收错峰）
     recycle-cron: "0 30 2 * * ?"
+  opportunity:
+    # 商机停滞检测定时任务 cron 配置位置（默认每天 03:00）
+    stale-cron: "0 0 3 * * ?"
 
 # 日志级别
 logging:

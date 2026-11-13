@@ -30,10 +30,11 @@ public class DataScopeTableRegistry {
         // 行级数据权限已接入的表（接入新表在此登记，见类注释）
         register(DataScopeTable.of("crm_lead"));     // 线索表：owner_id + dept_id
         register(DataScopeTable.of("crm_customer")); // 客户表：owner_id + dept_id
+        register(DataScopeTable.of("crm_opportunity")); // 商机表：owner_id + dept_id（预测聚合 SQL 同样会被注入别名 o 的条件）
         // 联系人可见性随客户（crm_contact 无 owner 列，不注册）
-        // TODO（业务模块落地后逐张登记，示例）：
-        // register(DataScopeTable.of("crm_opportunity")); // 商机表：owner_id + dept_id（轮次 3）
-        // register(new DataScopeTable("crm_follow_log", "owner_id", null)); // 跟进记录：仅 owner_id（轮次 4）
+        // 阶段配置（crm_opportunity_stage）与提醒（crm_reminder）为全局配置/私有提醒，不注册
+        // TODO（轮次 4 跟进记录表建立后）：
+        // register(new DataScopeTable("crm_follow_log", "owner_id", null)); // 跟进记录：仅 owner_id
     }
 
     public void register(DataScopeTable table) {

@@ -183,3 +183,12 @@ export const CONTACT_PERMISSIONS = {
   primary: 'crm:contact:primary',
   update: 'crm:contact:update',
 } as const;
+
+export const OPPORTUNITY_PERMISSIONS = {
+  create: 'crm:opportunity:create',
+  forecast: 'crm:opportunity:forecast',
+  list: 'crm:opportunity:list',
+  stage: 'crm:opportunity:stage',
+  stageManage: 'crm:opportunity:stage-manage',
+  update: 'crm:opportunity:update',
+} as const;

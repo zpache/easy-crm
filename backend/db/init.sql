@@ -258,6 +258,80 @@ CREATE TABLE IF NOT EXISTS crm_contact (
     KEY idx_phone (phone)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='联系人';
 
+-- ---------------------------------------------------------------- 销售阶段配置
+-- 初始化方式说明：采用 SQL 脚本种子（与项目其他初始数据一致，幂等 ON DUPLICATE KEY），
+-- 不用 CommandLineRunner——避免应用启动时有隐式写库行为，阶段调整直接改库即可生效。
+CREATE TABLE IF NOT EXISTS crm_opportunity_stage (
+    id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    stage_code        VARCHAR(32)     NOT NULL COMMENT '阶段编码，全局唯一',
+    stage_name        VARCHAR(64)     NOT NULL COMMENT '阶段名称',
+    sort_no           INT             NOT NULL DEFAULT 0 COMMENT '排序，阶段流转按此前后',
+    default_win_rate  INT             NOT NULL DEFAULT 0 COMMENT '默认赢单率（百分比）',
+    is_won            TINYINT         NOT NULL DEFAULT 0 COMMENT '1 赢单终态',
+    is_lost           TINYINT         NOT NULL DEFAULT 0 COMMENT '1 丢单终态',
+    enabled           TINYINT         NOT NULL DEFAULT 1 COMMENT '1 启用',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_stage_code (stage_code)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='商机销售阶段';
+
+-- ---------------------------------------------------------------- 商机
+-- win_rate 冗余当前阶段赢单率（阶段变更时同步），供预测汇总直接计算
+CREATE TABLE IF NOT EXISTS crm_opportunity (
+    id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    name                VARCHAR(128)    NOT NULL COMMENT '商机名称',
+    customer_id         BIGINT UNSIGNED NOT NULL COMMENT '关联客户（必须）',
+    contact_id          BIGINT UNSIGNED NULL COMMENT '关联联系人（可选）',
+    lead_id             BIGINT UNSIGNED NULL COMMENT '来源线索 ID（转化时回填）',
+    stage_code          VARCHAR(32)     NOT NULL COMMENT '当前阶段编码（crm_opportunity_stage）',
+    amount              DECIMAL(15, 2)  NULL COMMENT '预计金额',
+    currency            VARCHAR(8)      NOT NULL DEFAULT 'CNY' COMMENT '币种，默认 CNY',
+    win_rate            INT             NOT NULL DEFAULT 0 COMMENT '当前赢单率（冗余阶段配置）',
+    expected_close_date DATE            NULL COMMENT '预计成交日期',
+    actual_close_date   DATE            NULL COMMENT '实际成交日期（赢单时记录）',
+    actual_amount       DECIMAL(15, 2)  NULL COMMENT '实际成交金额（赢单时记录）',
+    lost_reason         VARCHAR(32)     NULL COMMENT '丢单原因字典值（LostReasons）',
+    competitor          VARCHAR(128)    NULL COMMENT '竞争对手（丢单时可选）',
+    owner_id            BIGINT UNSIGNED NULL COMMENT '负责人',
+    dept_id             BIGINT UNSIGNED NULL COMMENT '归属部门',
+    last_activity_at    DATETIME        NULL COMMENT '最近活动时间（停滞检测依据）',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_customer_id (customer_id),
+    KEY idx_owner_stage (owner_id, stage_code),
+    KEY idx_expected_close_date (expected_close_date)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='商机';
+
+-- ---------------------------------------------------------------- 提醒记录
+CREATE TABLE IF NOT EXISTS crm_reminder (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    biz_type    VARCHAR(32)     NOT NULL COMMENT '业务类型，如 opportunity_stale',
+    biz_id      BIGINT UNSIGNED NOT NULL COMMENT '业务 ID',
+    owner_id    BIGINT UNSIGNED NULL COMMENT '提醒接收人',
+    remind_level TINYINT        NOT NULL DEFAULT 1 COMMENT '提醒等级：1 黄 2 橙 3 红',
+    remind_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_flag   TINYINT         NOT NULL DEFAULT 0 COMMENT '0 未读 / 1 已读',
+    content     VARCHAR(255)    NULL COMMENT '提醒内容',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_owner_read (owner_id, read_flag)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='提醒记录';
+
 -- =====================================================================
 -- 初始数据：admin / admin123（仅开发环境，上线前改密）
 -- 密码为 BCrypt(cost=10)，与 SecurityConfig 的 BCryptPasswordEncoder 匹配
@@ -279,6 +353,17 @@ SELECT u.id, r.id FROM sys_user u, sys_role r
 WHERE u.username = 'admin' AND r.code = 'admin'
 ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
 
+-- 商机销售阶段默认配置（6 条：4 个进行中阶段 + 赢单/丢单终态；幂等）
+INSERT INTO crm_opportunity_stage (stage_code, stage_name, sort_no, default_win_rate, is_won, is_lost, enabled)
+VALUES
+    ('CONTACT',    '初步接洽', 10, 10,  0, 0, 1),
+    ('ANALYSIS',   '需求分析', 20, 30,  0, 0, 1),
+    ('PROPOSAL',   '方案提报', 30, 60,  0, 0, 1),
+    ('NEGOTIATION','商务谈判', 40, 80,  0, 0, 1),
+    ('WON',        '赢单',     90, 100, 1, 0, 1),
+    ('LOST',       '丢单',     99, 0,   0, 1, 1)
+ON DUPLICATE KEY UPDATE stage_name = VALUES(stage_name), enabled = VALUES(enabled);
+
 -- 预置菜单（component 相对前端 src/views；admin 角色通过 ADMIN 兜底获得全部权限码）
 INSERT INTO sys_permission (id, pid, name, title, type, auth_code, path, component, icon, order_no, status)
 VALUES
@@ -295,5 +380,7 @@ VALUES
     (11, 10, 'LeadList',       '线索列表', 'menu',    'crm:lead:list',     '/lead/list',          'lead/list',               'lucide:user-plus',       10, 1),
     (12, 0, 'CustomerManage',  '客户管理', 'catalog', NULL,                '/customer',           NULL,                      'lucide:building-2',      40, 1),
     (13, 12, 'CustomerList',   '客户列表', 'menu',    'crm:customer:list', '/customer/list',      'customer/list',           'lucide:building',        10, 1),
-    (14, 12, 'ContactList',    '联系人列表', 'menu',  'crm:contact:list',  '/customer/contact',   'contact/list',            'lucide:users',           20, 1)
+    (14, 12, 'ContactList',    '联系人列表', 'menu',  'crm:contact:list',  '/customer/contact',   'contact/list',            'lucide:users',           20, 1),
+    (15, 0, 'OppManage',       '商机管理', 'catalog', NULL,                '/opportunity',        NULL,                      'lucide:target',          45, 1),
+    (16, 15, 'OppList',        '商机列表', 'menu',    'crm:opportunity:list','/opportunity/list', 'opportunity/list',        'lucide:kanban',          10, 1)
 ON DUPLICATE KEY UPDATE title = VALUES(title), status = VALUES(status);
