@@ -15,7 +15,8 @@ public interface FollowRecordMapper extends BaseMapper<FollowRecord> {
     /**
      * 时间线聚合：跟进记录 + 待办任务 + 商机阶段变更（仅 bizType=opportunity 时纳入）
      * 一条 UNION ALL 查询完成（含分页），全局按时间倒序，避免多表分页合并错位。
-     * 行级数据权限拦截器会为 f（crm_follow_record）与 t（crm_task）注入 owner 条件。
+     * 行级数据权限：拦截器为 f（crm_follow_record）与 t（crm_task）注入 owner 条件；
+     * stage_log 子查询 JOIN crm_opportunity（已注册），同步注入商机 owner 条件，修复越权（审查报告 #4）。
      */
     @Select("""
             <script>
@@ -52,6 +53,7 @@ public interface FollowRecordMapper extends BaseMapper<FollowRecord> {
                        l.change_time AS time,
                        l.operator_id AS operatorId
                 FROM crm_opportunity_stage_log l
+                JOIN crm_opportunity o ON l.opportunity_id = o.id AND o.deleted = 0
                 WHERE l.opportunity_id = #{bizId}
                 </if>
             ) timeline
@@ -81,6 +83,7 @@ public interface FollowRecordMapper extends BaseMapper<FollowRecord> {
                 UNION ALL
                 SELECT l.id
                 FROM crm_opportunity_stage_log l
+                JOIN crm_opportunity o ON l.opportunity_id = o.id AND o.deleted = 0
                 WHERE l.opportunity_id = #{bizId}
                 </if>
             ) timeline

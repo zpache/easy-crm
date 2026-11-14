@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import cn.easykits.crm.common.api.PageResult;
 import cn.easykits.crm.common.api.ResultCode;
+import cn.easykits.crm.common.context.LoginUser;
+import cn.easykits.crm.common.context.LoginUserContext;
 import cn.easykits.crm.common.exception.BizException;
 import cn.easykits.crm.entity.Contact;
 import cn.easykits.crm.entity.Customer;
@@ -47,6 +49,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
     public static final int STATUS_MERGED = 3;
 
     private final ContactMapper contactMapper;
+    private final cn.easykits.crm.modules.contact.ContactService contactService;
     private final LeadMapper leadMapper;
     private final cn.easykits.crm.mapper.SysUserMapper sysUserMapper;
     private final cn.easykits.crm.mapper.SysDeptMapper sysDeptMapper;
@@ -94,6 +97,12 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
      */
     @Transactional(rollbackFor = Exception.class)
     public Long createFromForm(CustomerCreateForm form) {
+        // ownerId 缺省取当前登录人（避免「正常态但无负责人」的悬空数据，审查报告 #3）
+        if (form.getOwnerId() == null) {
+            LoginUser user = LoginUserContext.require();
+            form.setOwnerId(user.userId());
+            form.setDeptId(user.deptId());
+        }
         Customer existed = findDuplicate(form.getName(), form.getCreditCode(), null);
         if (existed != null) {
             throw new BizException("已存在相同名称%s的客户（ID: %d）"
@@ -221,10 +230,8 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
             throw new BizException(ResultCode.DATA_NOT_FOUND, "合并目标客户不存在或已合并");
         }
 
-        // 1. 迁移联系人
-        contactMapper.update(null, Wrappers.<Contact>lambdaUpdate()
-                .eq(Contact::getCustomerId, sourceId)
-                .set(Contact::getCustomerId, targetId));
+        // 1. 迁移联系人（收敛到 ContactService）
+        contactService.migrateToCustomer(sourceId, targetId);
         // 目标客户已存在主联系人时，迁移过来的主联系人降级为普通联系人，保证主联系人唯一
         Long targetPrimary = contactMapper.selectCount(Wrappers.<Contact>lambdaQuery()
                 .eq(Contact::getCustomerId, targetId)
@@ -250,7 +257,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
         // TODO（轮次 3 商机表建立后）：UPDATE crm_opportunity SET customer_id = target WHERE customer_id = source
         // TODO（轮次 4 跟进记录表建立后）：UPDATE crm_follow_record SET customer_id = target WHERE customer_id = source
 
-        // 3. 源客户标记已合并
+        // 3. 源客户标记已合并（乐观锁冲突即整体回滚，审查报告 #3）
         source.setStatus(STATUS_MERGED);
         source.setMergedToId(targetId);
         if (!updateById(source)) {

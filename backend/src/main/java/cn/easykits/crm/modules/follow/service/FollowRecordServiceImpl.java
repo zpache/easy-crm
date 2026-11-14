@@ -83,6 +83,7 @@ public class FollowRecordServiceImpl extends ServiceImpl<FollowRecordMapper, Fol
             task.setBizType(form.getBizType());
             task.setBizId(form.getBizId());
             task.setOwnerId(user.userId());
+            task.setFollowRecordId(record.getId());
             task.setSource("FOLLOW");
             taskMapper.insert(task);
         }
@@ -109,11 +110,10 @@ public class FollowRecordServiceImpl extends ServiceImpl<FollowRecordMapper, Fol
         }
         // 同业务对象活动时间刷新（同事务）
         activityUpdaterRegistry.updateActivity(record.getBizType(), record.getBizId());
-        // 同步该记录生成的待办任务截止时间
+        // 同步本记录生成的待办任务截止时间（按 followRecordId 精准匹配，不波及其他记录的待办）
         if (form.getNextFollowTime() != null) {
             taskMapper.update(null, Wrappers.<Task>lambdaUpdate()
-                    .eq(Task::getBizType, record.getBizType())
-                    .eq(Task::getBizId, record.getBizId())
+                    .eq(Task::getFollowRecordId, record.getId())
                     .eq(Task::getSource, "FOLLOW")
                     .eq(Task::getStatus, 0)
                     .set(Task::getDueTime, form.getNextFollowTime()));
@@ -131,6 +131,11 @@ public class FollowRecordServiceImpl extends ServiceImpl<FollowRecordMapper, Fol
             throw new BizException(ResultCode.DATA_NOT_FOUND, "跟进记录不存在");
         }
         removeById(id);
+        // 级联取消该记录自动生成的未完成待办（避免孤儿任务，审查报告 #3）
+        taskMapper.delete(Wrappers.<Task>lambdaQuery()
+                .eq(Task::getFollowRecordId, id)
+                .eq(Task::getSource, "FOLLOW")
+                .eq(Task::getStatus, 0));
     }
 
     /**

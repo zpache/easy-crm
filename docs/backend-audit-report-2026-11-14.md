@@ -85,3 +85,28 @@
 | fix 批次 2 | updateById 返回值检查（3 处）+ 管理端建客户默认负责人 + 孤儿待办清理 | 中 |
 | perf 批次 3 | 商机列表/看板阶段名 N+1 消除 | 高 |
 | refactor 批次 4 | 合并跨表迁移收敛 + 字典表迁移（LeadSource 先行） | 中 |
+
+
+---
+
+## 修复记录（2026-11-14，提交 fix(crm)）
+
+| 审查项 | 状态 | 修复内容 |
+| --- | --- | --- |
+| #4 时间线 stage_log 越权 | ✅ 已修复 | `FollowRecordMapper` 两个 UNION 的 stage_log 子查询 `JOIN crm_opportunity o`，拦截器注入 `o.owner_id` 条件（MySQL general_log 实证：sales1(SELF) 查 admin 商机 → 0 条；admin → 3 条） |
+| #3 转化联系人归属校验 | ✅ 已修复 | `ContactService.linkExisting(contactId, customerId)` 校验联系人属于目标客户；转化缺客户直接拒绝（商机必须挂客户） |
+| #7 商机列表/看板 stage 名 N+1 | ✅ 已修复 | 新增 `stageMap()` 一次查询全量阶段，toVO 接收 Map（MySQL general_log 实证：40 次分页请求仅 40 次阶段查询，每请求 1 次） |
+| #3 merge 源客户 updateById 未检查 | ✅ 已修复 | 乐观锁冲突即整体回滚 |
+| #3 赢单路径客户状态更新未检查 | ✅ 已修复 | updateById == 0 抛 DATA_CONFLICT |
+| #3 管理端建客户 ownerId 悬空 | ✅ 已修复 | ownerId 缺省取当前登录人（status 正常 + 有负责人） |
+| #3 跟进删除孤儿待办 | ✅ 已修复 | crm_task 新增 follow_record_id 列，删除跟进级联取消未完成待办；待办刷新按 followRecordId 精准匹配 |
+| #4 forecast deptId 越权 | ✅ 已修复 | SELF/DEPT 范围只允许查自己部门（实测 deptId=999 → 403，deptId=自身 → 放行） |
+| 新发现：关联表逻辑删除占唯一键 | ✅ 已修复 | sys_user_role / sys_role_permission 改物理删除（不继承 BaseEntity），实测角色二次授权不再 500；存量 deleted=1 行已物理清理 |
+| 新发现：mapper DEBUG 日志键 `**` 通配无效 | ✅ 已修复 | `cn.easykits.crm.mapper: DEBUG` 精确包名 |
+| 新发现：amount 无后端负数校验 | ✅ 已修复 | 商机创建/更新 amount >= 0 |
+| 新发现：crm_lead 转化关联无索引 | ✅ 已修复 | idx_converted_customer |
+| #2 合并跨表迁移收敛 | 部分完成 | 联系人迁移收敛到 ContactService.migrateToCustomer；线索关联迁移仍走 LeadMapper（避免注入环），TODO 注明 |
+| #6 字典表迁移 | 未启动 | LeadSource 等常量类保持，迁表时保留 fallback |
+| #5 timeline 深分页 | 不处理 | CRM 量级下 LIMIT offset 可接受 |
+
+验证方式：MySQL general_log 抓取真实 SQL（数据权限注入逐条核对）+ SELF 角色（sales1/SELFSALES，dataScope=1）越权对照测试 + 接口回归。

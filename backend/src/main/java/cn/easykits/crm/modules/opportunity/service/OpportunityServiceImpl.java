@@ -123,6 +123,9 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
                 form.getCustomerId(), form.getContactId(), user.userId(), user.deptId());
         Long id = create(info);
         Opportunity opportunity = getById(id);
+        if (form.getAmount() != null && form.getAmount().signum() < 0) {
+            throw new BizException("预计金额不能为负数");
+        }
         opportunity.setAmount(form.getAmount());
         opportunity.setExpectedCloseDate(form.getExpectedCloseDate());
         updateById(opportunity);
@@ -145,6 +148,9 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         if (form.getContactId() != null) {
             assertContactInCustomer(form.getContactId(), opportunity.getCustomerId());
             opportunity.setContactId(form.getContactId());
+        }
+        if (form.getAmount() != null && form.getAmount().signum() < 0) {
+            throw new BizException("预计金额不能为负数");
         }
         opportunity.setAmount(form.getAmount() != null ? form.getAmount() : opportunity.getAmount());
         opportunity.setExpectedCloseDate(form.getExpectedCloseDate() != null
@@ -169,7 +175,9 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
                         .ge(query.getStartDate() != null, Opportunity::getExpectedCloseDate, query.getStartDate())
                         .le(query.getEndDate() != null, Opportunity::getExpectedCloseDate, query.getEndDate())
                         .orderByDesc(Opportunity::getId));
-        List<OpportunityVO> vos = page.getRecords().stream().map(this::toVO).toList();
+        Map<String, OpportunityStage> stageMap = stageMap();
+        List<OpportunityVO> vos = page.getRecords().stream()
+                .map(lead -> toVO(lead, stageMap)).toList();
         fillCustomerContactOwnerNames(vos, page.getRecords());
         return new PageResult<>(vos, page.getTotal(), page.getCurrent(), page.getSize(), page.getPages());
     }
@@ -182,7 +190,7 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         if (opportunity == null) {
             throw new BizException(ResultCode.DATA_NOT_FOUND, "商机不存在");
         }
-        OpportunityVO vo = toVO(opportunity);
+        OpportunityVO vo = toVO(opportunity, stageMap());
         fillCustomerContactOwnerNames(List.of(vo), List.of(opportunity));
         return vo;
     }
@@ -193,6 +201,9 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
     public List<BoardStage> board() {
         List<OpportunityStage> stages = stageMapper.selectList(Wrappers.<OpportunityStage>lambdaQuery()
                 .orderByAsc(OpportunityStage::getSortNo));
+        Map<String, OpportunityStage> stageMap = stages.stream()
+                .collect(Collectors.toMap(OpportunityStage::getStageCode,
+                        Function.identity(), (a, b) -> a));
         List<Opportunity> all = list(Wrappers.<Opportunity>lambdaQuery()
                 .orderByDesc(Opportunity::getId));
         Map<String, List<Opportunity>> byStage = all.stream()
@@ -201,7 +212,7 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         for (OpportunityStage stage : stages) {
             List<OpportunityVO> cards = byStage
                     .getOrDefault(stage.getStageCode(), List.of())
-                    .stream().map(this::toVO).toList();
+                    .stream().map(lead -> toVO(lead, stageMap)).toList();
             fillCustomerContactOwnerNames(cards, byStage.getOrDefault(stage.getStageCode(), List.of()));
             BoardStage bs = new BoardStage();
             bs.setStageCode(stage.getStageCode());
@@ -253,7 +264,9 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
             Customer customer = customerMapper.selectById(opportunity.getCustomerId());
             if (customer != null) {
                 customer.setStatus(4);
-                customerMapper.updateById(customer);
+                if (customerMapper.updateById(customer) == 0) {
+                    throw new BizException(ResultCode.DATA_CONFLICT, "客户状态更新失败，请刷新后重试");
+                }
             }
         }
         if (to.getIsLost() != null && to.getIsLost() == 1) {
@@ -302,6 +315,14 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
      * totalForecast 为聚合结果各行求和（行数 = 阶段数，非按商机循环）。
      */
     public ForecastVO forecast(ForecastQuery query) {
+        // deptId 归属校验：SELF / DEPT 范围只允许查自己部门（ALL / DEPT_AND_CHILD 不限），防止口径泄露（审查报告 #4）
+        LoginUser user = LoginUserContext.require();
+        if (query.getDeptId() != null
+                && user.dataScope() != cn.easykits.crm.common.context.DataScopeType.ALL
+                && user.dataScope() != cn.easykits.crm.common.context.DataScopeType.DEPT_AND_CHILD
+                && !query.getDeptId().equals(user.deptId())) {
+            throw new BizException(ResultCode.FORBIDDEN);
+        }
         List<ForecastVO.StageRow> rows = baseMapper.forecastByStage(
                 query.getDeptId(), query.getStartDate(), query.getEndDate());
         BigDecimal total = rows.stream()
@@ -435,6 +456,15 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
 
     // ============================================================ 私有工具
 
+    /**
+     * 全量阶段 Map（stageCode -> Stage）：一次查询，消除列表/看板逐行查库的 N+1（审查报告 #7）。
+     */
+    private Map<String, OpportunityStage> stageMap() {
+        return stageMapper.selectList(Wrappers.<OpportunityStage>lambdaQuery()).stream()
+                .collect(Collectors.toMap(OpportunityStage::getStageCode,
+                        Function.identity(), (a, b) -> a));
+    }
+
     private void assertContactInCustomer(Long contactId, Long customerId) {
         cn.easykits.crm.entity.Contact contact = contactMapper.selectById(contactId);
         if (contact == null || !Objects.equals(contact.getCustomerId(), customerId)) {
@@ -491,7 +521,7 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         return vo;
     }
 
-    private OpportunityVO toVO(Opportunity opportunity) {
+    private OpportunityVO toVO(Opportunity opportunity, Map<String, OpportunityStage> stageMap) {
         OpportunityVO vo = new OpportunityVO();
         vo.setId(opportunity.getId());
         vo.setName(opportunity.getName());
@@ -499,9 +529,7 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         vo.setContactId(opportunity.getContactId());
         vo.setLeadId(opportunity.getLeadId());
         vo.setStageCode(opportunity.getStageCode());
-        OpportunityStage stage = stageMapper.selectOne(Wrappers.<OpportunityStage>lambdaQuery()
-                .eq(OpportunityStage::getStageCode, opportunity.getStageCode())
-                .last("limit 1"));
+        OpportunityStage stage = stageMap.get(opportunity.getStageCode());
         vo.setStageName(stage == null ? opportunity.getStageCode() : stage.getStageName());
         vo.setAmount(opportunity.getAmount());
         vo.setCurrency(opportunity.getCurrency());

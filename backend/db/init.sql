@@ -201,7 +201,8 @@ CREATE TABLE IF NOT EXISTS crm_lead (
     KEY idx_email (email),
     KEY idx_owner_status (owner_id, status),
     KEY idx_name (name),
-    KEY idx_status (status)
+    KEY idx_status (status),
+    KEY idx_converted_customer (converted_customer_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='线索';
 
 -- ---------------------------------------------------------------- 客户
@@ -368,6 +369,7 @@ CREATE TABLE IF NOT EXISTS crm_task (
     biz_type    VARCHAR(32)     NULL COMMENT '关联业务类型（可空=独立待办）',
     biz_id      BIGINT UNSIGNED NULL COMMENT '关联业务 ID',
     owner_id    BIGINT UNSIGNED NULL COMMENT '负责人',
+    follow_record_id BIGINT UNSIGNED NULL COMMENT '生成来源跟进记录 ID（source=FOLLOW 时有效，删除记录级联取消）',
     source      VARCHAR(16)     NOT NULL DEFAULT 'MANUAL' COMMENT '来源：MANUAL 手动 / FOLLOW 跟进记录生成',
     create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -216,10 +216,14 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
             contactInfo.setPosition(info.getPosition());
             contactId = contactService.create(customerId, contactInfo);
         } else if (form.getContactId() != null) {
-            contactId = contactService.linkExisting(form.getContactId());
+            // 归属校验：联系人必须属于本次转化的客户（审查报告 #3）
+            contactId = contactService.linkExisting(form.getContactId(), customerId);
         }
 
-        // 3. 商机：必须创建
+        // 3. 商机：必须创建，且必须关联客户（业务规则：客户是商机的挂载点）
+        if (customerId == null) {
+            throw new BizException("转化必须创建或关联客户");
+        }
         String opportunityName = StringUtils.hasText(form.getOpportunityName())
                 ? form.getOpportunityName() : lead.getName();
         Long opportunityId = opportunityService.create(new OpportunityService.OpportunityInfo(

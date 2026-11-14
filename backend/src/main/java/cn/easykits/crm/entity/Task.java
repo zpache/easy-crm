@@ -39,6 +39,9 @@ public class Task extends BaseEntity {
     /** 负责人 */
     private Long ownerId;
 
+    /** 生成来源跟进记录 ID（source=FOLLOW 时有效） */
+    private Long followRecordId;
+
     /** 来源：MANUAL 手动 / FOLLOW 跟进记录生成 */
     private String source;
 }

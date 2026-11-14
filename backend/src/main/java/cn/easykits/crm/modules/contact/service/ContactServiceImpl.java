@@ -62,7 +62,7 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact>
     }
 
     @Override
-    public Long linkExisting(Long contactId) {
+    public Long linkExisting(Long contactId, Long customerId) {
         if (contactId == null) {
             throw new BizException("联系人 ID 不能为空");
         }
@@ -70,7 +70,20 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact>
         if (contact == null) {
             throw new BizException(ResultCode.DATA_NOT_FOUND, "联系人不存在");
         }
+        // 归属校验：防止把 A 客户的联系人挂到 B 客户（审查报告 #3）
+        if (customerId != null && !contact.getCustomerId().equals(customerId)) {
+            throw new BizException("联系人「%s」不属于该客户（所属客户 ID: %d）"
+                    .formatted(contact.getName(), contact.getCustomerId()));
+        }
         return contactId;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void migrateToCustomer(Long sourceCustomerId, Long targetCustomerId) {
+        update(null, Wrappers.<Contact>lambdaUpdate()
+                .eq(Contact::getCustomerId, sourceCustomerId)
+                .set(Contact::getCustomerId, targetCustomerId));
     }
 
     // ============================================================ 管理端 CRUD
@@ -93,7 +106,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact>
         if (Boolean.TRUE.equals(form.getIsPrimary())) {
             clearPrimary(contact.getCustomerId(), contact.getId());
             contact.setIsPrimary(1);
-            updateById(contact);
+            if (!updateById(contact)) {
+                throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
+            }
         }
         return contact.getId();
     }
