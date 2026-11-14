@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     role          VARCHAR(64)     NULL COMMENT '主角色标识，兜底用；优先取 sys_user_role',
     status        TINYINT         NOT NULL DEFAULT 1 COMMENT '1 正常，0 禁用',
     last_login_at DATETIME        NULL COMMENT '最后登录时间',
+    token_version BIGINT          NOT NULL DEFAULT 0 COMMENT '令牌版本：改密/登出/停用时递增，旧 JWT 立即失效',
     create_time   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     create_by     BIGINT          NULL,
@@ -397,8 +398,10 @@ CREATE TABLE IF NOT EXISTS crm_opportunity_stage_log (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='商机阶段变更日志';
 
 -- =====================================================================
--- 初始数据：admin / admin123（仅开发环境，上线前改密）
--- 密码为 BCrypt(cost=10)，与 SecurityConfig 的 BCryptPasswordEncoder 匹配
+-- 初始数据：admin（初始口令仅用于引导，首次启动时自动更换）
+-- 下面这行 BCrypt 是「未加固」标记值：应用启动检测到它即生成随机口令并打印一次，
+-- 也可通过环境变量 ADMIN_INITIAL_PASSWORD 预设。任何环境都不会保留公开的默认口令。
+-- 详见 backend/db/migration/README.md 与 security/AdminBootstrapRunner.java
 -- =====================================================================
 INSERT INTO sys_dept (id, pid, name, sort, status, remark)
 VALUES (1, 0, '总部', 0, 1, '根部门')
@@ -448,5 +451,25 @@ VALUES
     (15, 0, 'OppManage',       '商机管理', 'catalog', NULL,                '/opportunity',        NULL,                      'lucide:target',          45, 1),
     (16, 15, 'OppList',        '商机列表', 'menu',    'crm:opportunity:list','/opportunity/list', 'opportunity/list',        'lucide:kanban',          10, 1),
     (17, 0, 'TaskManage',      '待办任务', 'catalog', NULL,                '/task',               NULL,                      'lucide:check-square',    70, 1),
-    (18, 17, 'TaskList',       '任务列表', 'menu',    'crm:task:list',     '/task/list',          'task/list',               'lucide:list-checks',     10, 1)
+    (18, 17, 'TaskList',       '任务列表', 'menu',    'crm:task:list',     '/task/list',          'task/list',               'lucide:list-checks',     10, 1),
+    -- 跟进记录 / 商机看板 / 消息提醒
+    (20, 0,  'FollowManage',   '跟进管理', 'catalog', NULL,                  '/follow',             NULL,                       'lucide:history',         48,  1),
+    (21, 20, 'FollowList',     '跟进记录', 'menu',    'crm:follow:list',    '/follow/list',        'follow/list',              'lucide:message-square',  10,  1),
+    (22, 15, 'OpportunityBoard','商机看板','menu',    'crm:opportunity:list','/opportunity/board',  'opportunity/board',        'lucide:kanban',          20,  1),
+    (23, 0,  'MessageCenter',  '消息提醒', 'menu',    'crm:reminder:list',  '/message',            'message/index',            'lucide:bell',            80,  1),
+    -- 客户服务
+    (60, 0,  'Support',            '客户服务',   'catalog', NULL,                     '/support',            NULL,                              'lucide:headset',    60,  1),
+    (61, 60, 'SupportTicketList',  '工单列表',   'menu',    'crm:ticket:list',       '/support/ticket',     'support/ticket/list',             'lucide:ticket',     10,  1),
+    (62, 60, 'SupportSlaPolicy',   'SLA 策略',   'menu',    'crm:sla:list',          '/support/sla',        'support/sla/list',                'lucide:timer',      20,  1),
+    (63, 60, 'SupportKnowledge',   '知识库',     'menu',    'crm:knowledge:list',    '/support/knowledge',  'support/knowledge/list',          'lucide:book-open',  30,  1),
+    (64, 60, 'SupportSatisfaction','满意度统计', 'menu',    'crm:satisfaction:list', '/support/satisfaction','support/satisfaction/list',      'lucide:star',       40,  1),
+    -- 产品 / 交易 / 报表中心
+    (100, 0,   'CrmProduct',       '产品管理',   'catalog', NULL,                  '/product',            NULL,                     'lucide:package',     55,  1),
+    (101, 100, 'ProductList',      '产品列表',   'menu',    'crm:product:list',    '/product/list',       'product/list',           'lucide:boxes',       10,  1),
+    (110, 0,   'CrmTrade',         '交易管理',   'catalog', NULL,                  '/trade',              NULL,                     'lucide:shopping-cart',56, 1),
+    (111, 110, 'ContractList',     '合同列表',   'menu',    'crm:contract:list',   '/trade/contract',     'contract/list',          'lucide:file-signature',10, 1),
+    (112, 110, 'CrmOrderList',     '订单列表',   'menu',    'crm:order:list',      '/trade/order',        'order/list',             'lucide:clipboard-list',20, 1),
+    (113, 110, 'PaymentList',      '回款管理',   'menu',    'crm:payment-plan:list','/trade/payment',     'payment/list',           'lucide:wallet',      30,  1),
+    (120, 0,   'CrmReport',        '报表中心',   'catalog', NULL,                  '/report',             NULL,                     'lucide:chart-column',60,  1),
+    (121, 120, 'ReportAchievement','销售达成分析','menu',   'crm:report:achievement','/report/analysis',  'report/index',           'lucide:chart-no-axes-combined',10,1)
 ON DUPLICATE KEY UPDATE title = VALUES(title), status = VALUES(status);

@@ -199,3 +199,38 @@ export const TASK_PERMISSIONS = {
   list: 'crm:task:list',
   update: 'crm:task:update',
 } as const;
+
+/** 批次 2：分配转派与消息提醒 */
+export const ASSIGN_PERMISSIONS = {
+  customer: 'crm:customer:assign',
+  lead: 'crm:lead:assign',
+  opportunity: 'crm:opportunity:assign',
+} as const;
+
+export const REMINDER_PERMISSIONS = {
+  list: 'crm:reminder:list',
+  read: 'crm:reminder:read',
+} as const;
+
+/** 批次 4：客户服务（与 api/crm/support.ts 中的导出保持一致） */
+export const SUPPORT_PERMISSIONS = {
+  knowledgeCreate: 'crm:knowledge:create',
+  knowledgeDelete: 'crm:knowledge:delete',
+  knowledgeList: 'crm:knowledge:list',
+  knowledgeUpdate: 'crm:knowledge:update',
+  satisfactionCreate: 'crm:satisfaction:create',
+  satisfactionList: 'crm:satisfaction:list',
+  slaCreate: 'crm:sla:create',
+  slaDelete: 'crm:sla:delete',
+  slaList: 'crm:sla:list',
+  slaUpdate: 'crm:sla:update',
+  ticketAssign: 'crm:ticket:assign',
+  ticketClose: 'crm:ticket:close',
+  ticketCreate: 'crm:ticket:create',
+  ticketList: 'crm:ticket:list',
+  ticketStatus: 'crm:ticket:status',
+  ticketUpdate: 'crm:ticket:update',
+} as const;
+
+/** 批次 3：产品 / 交易 / 导出 / 报表权限常量 */
+export * from './crm-batch3-permissions';

@@ -40,7 +40,42 @@ public final class PermissionCodes {
 
             // 跟进记录 / 待办任务
             "crm:follow:list", "crm:follow:create", "crm:follow:update", "crm:follow:delete",
-            "crm:task:list", "crm:task:create", "crm:task:update", "crm:task:complete"
+            "crm:task:list", "crm:task:create", "crm:task:update", "crm:task:complete",
+
+            // 分配转派 / 消息提醒
+            "crm:lead:assign", "crm:customer:assign", "crm:opportunity:assign",
+            "crm:reminder:list", "crm:reminder:read",
+
+            // 产品与价格
+            "crm:product:list", "crm:product:create", "crm:product:update", "crm:product:delete",
+            "crm:price:list", "crm:price:create", "crm:price:update", "crm:price:delete",
+            "crm:opp-item:list", "crm:opp-item:create", "crm:opp-item:update", "crm:opp-item:delete",
+            "crm:quote:list", "crm:quote:create", "crm:quote:update", "crm:quote:delete",
+
+            // 合同 / 订单 / 回款 / 开票 / 退款
+            "crm:contract:list", "crm:contract:create", "crm:contract:update", "crm:contract:delete",
+            "crm:order:list", "crm:order:create", "crm:order:update", "crm:order:delete",
+            "crm:order:status",
+            "crm:payment-plan:list", "crm:payment-plan:create", "crm:payment-plan:update",
+            "crm:payment-plan:delete",
+            "crm:payment:list", "crm:payment:create", "crm:payment:update", "crm:payment:delete",
+            "crm:payment:writeoff",
+            "crm:invoice:list", "crm:invoice:create", "crm:invoice:update", "crm:invoice:delete",
+            "crm:refund:list", "crm:refund:create", "crm:refund:update", "crm:refund:delete",
+
+            // 导出中心 / 报表中心
+            "crm:export:lead", "crm:export:customer", "crm:export:contact",
+            "crm:export:opportunity", "crm:export:order", "crm:export:template",
+            "crm:sales-target:list", "crm:sales-target:create", "crm:sales-target:update",
+            "crm:sales-target:delete", "crm:report:achievement",
+
+            // 客户服务：工单 / SLA / 知识库 / 满意度
+            "crm:ticket:list", "crm:ticket:create", "crm:ticket:update",
+            "crm:ticket:assign", "crm:ticket:status", "crm:ticket:close",
+            "crm:sla:list", "crm:sla:create", "crm:sla:update", "crm:sla:delete",
+            "crm:knowledge:list", "crm:knowledge:create", "crm:knowledge:update",
+            "crm:knowledge:delete",
+            "crm:satisfaction:list", "crm:satisfaction:create"
     );
 
     private PermissionCodes() {
