@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * 客户：已转化的企业实体，商机 / 订单 / 回款的挂载点。
- * status：1 正常 / 2 公海 / 3 已合并（merged_to_id 指向合并目标）。
+ * status：1 正常 / 2 公海 / 3 已合并 / 4 成交客户（merged_to_id 指向合并目标）。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -38,7 +38,7 @@ public class Customer extends BaseEntity {
     /** 客户级别字典值 */
     private Integer level;
 
-    /** 1 正常 / 2 公海 / 3 已合并 */
+    /** 1 正常 / 2 公海 / 3 已合并 / 4 成交客户 */
     private Integer status;
 
     /** 负责人，NULL 表示公海 */

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -57,7 +58,7 @@ public class CustomerController {
         return Result.ok(customerService.detail(id));
     }
 
-    @Operation(summary = "客户 360 视图（基本信息 + 联系人；商机/跟进待后续轮次填充）")
+    @Operation(summary = "客户 360 视图（基本信息 + 联系人 + 商机 + 跟进记录）")
     @GetMapping("/{id}/360")
     @PreAuthorize("hasAuthority('crm:customer:list')")
     public Result<Customer360VO> view360(@PathVariable Long id) {
@@ -92,6 +93,14 @@ public class CustomerController {
     @PreAuthorize("hasAuthority('crm:customer:claim')")
     public Result<Void> claim(@PathVariable Long id) {
         customerService.claim(id);
+        return Result.ok();
+    }
+
+    @Operation(summary = "分配/转派负责人（校验目标用户存在且启用）")
+    @PostMapping("/{id}/assign")
+    @PreAuthorize("hasAuthority('crm:customer:assign')")
+    public Result<Void> assign(@PathVariable Long id, @RequestParam Long ownerId) {
+        customerService.assign(id, ownerId);
         return Result.ok();
     }
 }

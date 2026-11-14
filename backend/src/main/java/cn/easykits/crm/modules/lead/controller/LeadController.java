@@ -88,6 +88,14 @@ public class LeadController {
         return Result.ok();
     }
 
+    @Operation(summary = "分配/转派负责人（校验目标用户存在且启用）")
+    @PostMapping("/{id}/assign")
+    @PreAuthorize("hasAuthority('crm:lead:assign')")
+    public Result<Void> assign(@PathVariable Long id, @RequestParam Long ownerId) {
+        leadService.assign(id, ownerId);
+        return Result.ok();
+    }
+
     @Operation(summary = "Excel 批量导入（逐行校验，错误行集中返回）")
     @PostMapping("/import")
     @PreAuthorize("hasAuthority('crm:lead:import')")

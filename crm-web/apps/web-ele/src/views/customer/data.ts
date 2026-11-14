@@ -13,6 +13,9 @@ import {
 import { usePermission } from '#/composables/use-permission';
 import { CUSTOMER_PERMISSIONS } from '#/constants/permissions';
 
+/** 客户分配权限码（与后端 @PreAuthorize 一致，由统一整合方登记到 permissions.ts） */
+export const CUSTOMER_ASSIGN_PERMISSION = 'crm:customer:assign';
+
 /**
  * 客户创建 / 编辑表单
  */
@@ -108,7 +111,9 @@ export function useColumns<T = CustomerApi.Customer>(
   const canMerge = can(CUSTOMER_PERMISSIONS.merge);
   const canPool = can(CUSTOMER_PERMISSIONS.toPool);
   const canClaim = can(CUSTOMER_PERMISSIONS.claim);
+  const canAssign = can(CUSTOMER_ASSIGN_PERMISSION);
   return [
+    { type: 'checkbox', width: 50, fixed: 'left' },
     { field: 'name', minWidth: 160, title: '客户名称' },
     { field: 'creditCode', minWidth: 150, title: '信用代码' },
     { field: 'industryName', title: '行业', width: 100 },
@@ -121,6 +126,7 @@ export function useColumns<T = CustomerApi.Customer>(
           { label: '正常', type: 'success', value: 1 },
           { label: '公海', type: 'warning', value: 2 },
           { label: '已合并', type: 'danger', value: 3 },
+          { label: '成交客户', type: 'primary', value: 4 },
         ],
       },
       field: 'status',
@@ -142,6 +148,11 @@ export function useColumns<T = CustomerApi.Customer>(
           { code: 'view360', text: '360', show: () => true },
           { code: 'edit', show: (row: CustomerApi.Customer) => canUpdate && row.status !== 3 },
           {
+            code: 'assign',
+            show: (row: CustomerApi.Customer) => canAssign && row.status !== 3,
+            text: '分配',
+          },
+          {
             code: 'merge',
             show: (row: CustomerApi.Customer) => canMerge && row.status !== 3,
             text: '合并',
@@ -161,7 +172,7 @@ export function useColumns<T = CustomerApi.Customer>(
       field: 'operation',
       fixed: 'right',
       title: '操作',
-      width: 240,
+      width: 280,
     },
   ];
 }

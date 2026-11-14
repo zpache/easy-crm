@@ -1,108 +1,70 @@
 import type { VbenFormSchema } from '#/adapter/form';
 import type { VxeTableGridColumns } from '#/adapter/vxe-table';
 
-import { $t } from '#/locales';
+/**
+ * 消息提醒权限码（与后端 @PreAuthorize 保持一致；由统一整合方登记到
+ * constants/permissions.ts，本页面先本地声明）。
+ */
+export const REMINDER_PERMISSIONS = {
+  list: 'crm:reminder:list',
+  read: 'crm:reminder:read',
+} as const;
 
 export function formatTime(value?: string) {
   return value ? String(value).replace('T', ' ').slice(0, 19) : '';
 }
 
-/** 消息类型 → 标签颜色与文案 */
-export function useTypeOptions() {
-  return [
-    {
-      color: 'primary',
-      label: $t('message.typeOrderPaid'),
-      value: 'ORDER_PAID',
-    },
-    {
-      color: 'warning',
-      label: $t('message.typeRefundApply'),
-      value: 'REFUND_APPLY',
-    },
-    { color: 'success', label: $t('message.typeComment'), value: 'COMMENT' },
-    {
-      color: 'error',
-      label: $t('message.typeStockWarn'),
-      value: 'STOCK_WARN',
-    },
-    { color: 'default', label: $t('message.typeSystem'), value: 'SYSTEM' },
-  ];
-}
-
-/** 已读状态选项 */
-export function useReadOptions() {
-  return [
-    { color: 'warning', label: $t('message.unread'), value: 0 },
-    { color: 'success', label: $t('message.read'), value: 1 },
-  ];
-}
-
-/**
- * 消息中心查询表单
- */
+/** 消息提醒查询表单 */
 export function useGridFormSchema(): VbenFormSchema[] {
   return [
     {
       component: 'Select',
       componentProps: {
         allowClear: true,
-        options: useTypeOptions(),
-      },
-      fieldName: 'type',
-      label: $t('message.type'),
-    },
-    {
-      component: 'Select',
-      componentProps: {
-        allowClear: true,
         options: [
-          { label: $t('message.unread'), value: true },
-          { label: $t('message.all'), value: false },
+          { label: '未读', value: true },
+          { label: '全部', value: false },
         ],
       },
       fieldName: 'onlyUnread',
-      label: $t('message.status'),
+      label: '状态',
     },
   ];
 }
 
-/**
- * 消息列表列
- */
+/** 消息提醒列表列 */
 export function useColumns(): VxeTableGridColumns {
   return [
     {
       cellRender: {
         name: 'CellTag',
-        options: useTypeOptions(),
+        options: [
+          { label: '黄', type: 'warning', value: 1 },
+          { label: '橙', type: 'warning', value: 2 },
+          { label: '红', type: 'danger', value: 3 },
+        ],
       },
-      field: 'type',
-      title: $t('message.type'),
-      width: 120,
-    },
-    {
-      field: 'title',
-      minWidth: 200,
-      title: $t('message.title'),
+      field: 'remindLevel',
+      title: '等级',
+      width: 90,
     },
     {
       field: 'content',
       minWidth: 300,
       showOverflow: 'tooltip',
-      title: $t('message.content'),
+      title: '提醒内容',
+    },
+    { field: 'bizType', title: '业务类型', width: 140 },
+    {
+      field: 'readFlag',
+      formatter: ({ row }: any) => (row.readFlag === 1 ? '已读' : '未读'),
+      title: '状态',
+      width: 90,
     },
     {
-      field: 'read',
-      formatter: ({ row }) =>
-        row.read ? $t('message.read') : $t('message.unread'),
-      title: $t('message.status'),
-      width: 100,
-    },
-    {
-      field: 'createdAt',
-      formatter: ({ row }) => formatTime(row.createdAt),
-      title: $t('message.createdAt'),
+      field: 'remindTime',
+      formatter: ({ row }: any) => formatTime(row.remindTime),
+      title: '提醒时间',
       width: 170,
     },
   ];

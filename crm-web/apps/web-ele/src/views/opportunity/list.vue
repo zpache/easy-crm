@@ -5,15 +5,20 @@ import type {
 } from '#/adapter/vxe-table';
 import type { OpportunityApi } from '#/api/crm/opportunity';
 
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus, Settings } from '@vben/icons';
 
-import { ElButton } from 'element-plus';
+import { ElButton, ElMessage } from 'element-plus';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getOpportunityList, getStages } from '#/api/crm/opportunity';
+import {
+  assignOpportunity,
+  getOpportunityList,
+  getStages,
+} from '#/api/crm/opportunity';
+import AssignUserDialog from '#/components/assign-user-dialog.vue';
 import { OPPORTUNITY_PERMISSIONS } from '#/constants/permissions';
 
 import { loadCustomerOptions, stageOptions, useColumns, useGridFormSchema } from './data';
@@ -49,6 +54,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
   },
   gridOptions: {
     columns: useColumns(onActionClick),
+    checkboxConfig: { highlight: true, reserve: true },
     height: 'auto',
     keepSource: true,
     proxyConfig: {
@@ -80,8 +86,30 @@ const [Grid, gridApi] = useVbenVxeGrid({
   } as VxeTableGridOptions<OpportunityApi.Opportunity>,
 });
 
+/** 分配负责人弹窗状态 */
+const assignOpen = ref(false);
+const assignTargetId = ref<null | number>(null);
+
+function openAssign(row: OpportunityApi.Opportunity) {
+  assignTargetId.value = row.id;
+  assignOpen.value = true;
+}
+
+async function handleAssign(ownerId: number) {
+  if (assignTargetId.value == null) {
+    return;
+  }
+  await assignOpportunity(assignTargetId.value, ownerId);
+  ElMessage.success('分配成功');
+  gridApi.query();
+}
+
 function onActionClick(e: OnActionClickParams<OpportunityApi.Opportunity>) {
   switch (e.code) {
+    case 'assign': {
+      openAssign(e.row);
+      break;
+    }
     case 'edit': {
       formDrawerApi.setData(e.row).open();
       break;
@@ -113,6 +141,7 @@ onMounted(async () => {
     <StageChangeDrawerComp @success="gridApi.query()" />
     <ForecastDrawerComp />
     <StageConfigDrawerComp @success="gridApi.query()" />
+    <AssignUserDialog v-model="assignOpen" @confirm="handleAssign" />
     <Grid table-title="商机列表">
       <template #toolbar-tools>
         <ElButton

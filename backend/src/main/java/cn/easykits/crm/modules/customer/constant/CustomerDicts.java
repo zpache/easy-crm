@@ -9,6 +9,13 @@ import java.util.Map;
  */
 public final class CustomerDicts {
 
+    /** 客户状态语义常量：与 STATUS 字典、DDL 注释、前端状态选项保持一致 */
+    public static final int STATUS_NORMAL = 1;
+    public static final int STATUS_POOL = 2;
+    public static final int STATUS_MERGED = 3;
+    /** 赢单后由 OpportunityServiceImpl.changeStage 回写的「成交客户」状态 */
+    public static final int STATUS_DEAL = 4;
+
     /** 行业 */
     public static final Map<Integer, String> INDUSTRY = Map.of(
             1, "制造业",
@@ -40,13 +47,14 @@ public final class CustomerDicts {
             2, "B（重点）",
             3, "C（普通）");
 
-    /** 客户状态：1 正常 / 2 公海 / 3 已合并 */
+    /** 客户状态：1 正常 / 2 公海 / 3 已合并 / 4 成交客户 */
     public static final Map<Integer, String> STATUS = new LinkedHashMap<>();
 
     static {
-        STATUS.put(1, "正常");
-        STATUS.put(2, "公海");
-        STATUS.put(3, "已合并");
+        STATUS.put(STATUS_NORMAL, "正常");
+        STATUS.put(STATUS_POOL, "公海");
+        STATUS.put(STATUS_MERGED, "已合并");
+        STATUS.put(STATUS_DEAL, "成交客户");
     }
 
     private CustomerDicts() {

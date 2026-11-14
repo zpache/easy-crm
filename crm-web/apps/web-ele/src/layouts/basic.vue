@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { NotificationItem } from '@vben/layouts';
 
-import type { MessageApi } from '#/api/message';
+import type { ReminderApi } from '#/api/crm/reminder';
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
@@ -18,11 +18,11 @@ import { preferences, usePreferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
 
 import {
-  getMessages,
+  getReminders,
   getUnreadCount,
-  readAllMessages,
-  readMessage,
-} from '#/api/message';
+  readAllReminders,
+  readReminder,
+} from '#/api/crm/reminder';
 import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
@@ -37,15 +37,18 @@ const notifications = ref<NotificationItem[]>([]);
 const unread = ref(0);
 let pollTimer: null | ReturnType<typeof setInterval> = null;
 
-function toNotificationItem(message: MessageApi.Message): NotificationItem {
+function toNotificationItem(message: ReminderApi.Reminder): NotificationItem {
   return {
     id: message.id,
     avatar: preferences.app.defaultAvatar,
-    date: (message.createdAt ?? '').replace('T', ' ').slice(0, 16),
-    isRead: message.read,
+    date: (message.remindTime ?? message.createTime ?? '')
+      .replace('T', ' ')
+      .slice(0, 16),
+    isRead: message.readFlag === 1,
     message: message.content ?? '',
-    title: message.title,
-    link: message.link,
+    title: message.levelName
+      ? `商机停滞提醒（${message.levelName}）`
+      : '消息提醒',
   };
 }
 
@@ -56,7 +59,7 @@ function toNotificationItem(message: MessageApi.Message): NotificationItem {
 async function loadNotifications() {
   try {
     const [page, count] = await Promise.all([
-      getMessages({ onlyUnread: true, pageNum: 1, pageSize: 10 }),
+      getReminders({ onlyUnread: true, pageNum: 1, pageSize: 10 }),
       getUnreadCount(),
     ]);
     notifications.value = page.items.map(toNotificationItem);
@@ -104,23 +107,22 @@ async function handleLogout() {
 }
 
 /**
- * 单条已读：已读是全局的，谁确认了这条消息所有人都不会再看到，
- * 所以本地先移除 + 角标减一，接口失败再回滚重拉。
+ * 单条已读：按当前用户 ownerId 维度，本地先移除 + 角标减一，接口失败再回滚重拉。
  */
 async function markRead(id: number | string) {
   notifications.value = notifications.value.filter((item) => item.id !== id);
   unread.value = Math.max(0, unread.value - 1);
   try {
-    await readMessage(Number(id));
+    await readReminder(Number(id));
   } catch {
     loadNotifications();
   }
 }
 
-/** 全部已读 */
+/** 全部已读（当前用户） */
 async function markAllRead() {
   try {
-    await readAllMessages();
+    await readAllReminders();
   } finally {
     notifications.value = [];
     unread.value = 0;

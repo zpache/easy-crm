@@ -9,9 +9,11 @@ import cn.easykits.crm.common.api.ResultCode;
 import cn.easykits.crm.common.context.LoginUser;
 import cn.easykits.crm.common.context.LoginUserContext;
 import cn.easykits.crm.common.exception.BizException;
+import cn.easykits.crm.entity.FollowRecord;
 import cn.easykits.crm.entity.Lead;
 import cn.easykits.crm.entity.SysDept;
 import cn.easykits.crm.entity.SysUser;
+import cn.easykits.crm.mapper.FollowRecordMapper;
 import cn.easykits.crm.mapper.LeadMapper;
 import cn.easykits.crm.mapper.SysDeptMapper;
 import cn.easykits.crm.mapper.SysUserMapper;
@@ -19,6 +21,7 @@ import cn.easykits.crm.modules.contact.ContactService;
 import cn.easykits.crm.modules.contact.dto.ContactInfo;
 import cn.easykits.crm.modules.customer.CustomerService;
 import cn.easykits.crm.modules.customer.dto.CustomerInfo;
+import cn.easykits.crm.modules.follow.constant.FollowBizTypes;
 import cn.easykits.crm.modules.lead.constant.LeadSource;
 import cn.easykits.crm.modules.lead.constant.LeadStatus;
 import cn.easykits.crm.modules.lead.dto.ConvertForm;
@@ -39,6 +42,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -65,6 +69,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
     private final OpportunityService opportunityService;
     private final SysUserMapper sysUserMapper;
     private final SysDeptMapper sysDeptMapper;
+    private final FollowRecordMapper followRecordMapper;
 
     // ============================================================ 创建 / 更新
 
@@ -290,25 +295,85 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
     }
 
     /**
-     * 公海自动回收：跟进中且超过 N 天无跟进记录的线索回退公海。
-     * 由 {@code LeadRecycleTask} 定时调用（cron 配置：application.yml 的 easy-crm.lead.recycle-cron）。
+     * 公海自动回收：以 crm_follow_record 中该线索最近一条跟进记录的 create_time 为准，
+     * 无跟进记录时回退 last_follow_time，再回退 create_time；超过 N 天才回收。
+     * <p>边界：活动时间「恰好等于」deadline（即恰好 N 天）不回收；无任何时间依据也不回收（保守）。
+     * 由 {@code LeadRecycleTask} 在 runAsSystem 上下文定时调用。
      *
      * @return 回收条数
      */
     @Transactional(rollbackFor = Exception.class)
     public int recycleIdleToPool(int idleDays) {
         LocalDateTime deadline = LocalDateTime.now().minusDays(idleDays);
-        List<Lead> idle = list(Wrappers.<Lead>lambdaQuery()
+        // 一次查询聚合该业务类型全部跟进记录，避免按线索循环查库（N+1）
+        Map<Long, LocalDateTime> latestFollowMap = latestFollowTimeMap(FollowBizTypes.LEAD);
+        List<Lead> candidates = list(Wrappers.<Lead>lambdaQuery()
                 .eq(Lead::getStatus, LeadStatus.FOLLOWING.code())
-                .isNotNull(Lead::getOwnerId)
-                .lt(Lead::getLastFollowTime, deadline));
-        for (Lead lead : idle) {
+                .isNotNull(Lead::getOwnerId));
+        int recycled = 0;
+        for (Lead lead : candidates) {
+            LocalDateTime base = latestFollowMap.get(lead.getId());
+            if (base == null) {
+                base = lead.getLastFollowTime() != null
+                        ? lead.getLastFollowTime() : lead.getCreateTime();
+            }
+            // 严格小于阈值才回收：恰好 N 天（== deadline）不回收；无时间依据不回收
+            if (base == null || !base.isBefore(deadline)) {
+                continue;
+            }
             lead.setOwnerId(null);
             lead.setDeptId(null);
             lead.setStatus(LeadStatus.NEW.code());
-            updateById(lead);
+            if (!updateById(lead)) {
+                throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
+            }
+            recycled++;
         }
-        return idle.size();
+        return recycled;
+    }
+
+    /**
+     * 一次查询指定业务类型的全部跟进记录（仅取 biz_id / create_time），
+     * 在内存聚合出每个业务对象的最近跟进时间；查询次数固定为 1，不随对象数增长。
+     */
+    private Map<Long, LocalDateTime> latestFollowTimeMap(String bizType) {
+        List<FollowRecord> records = followRecordMapper.selectList(
+                Wrappers.<FollowRecord>lambdaQuery()
+                        .select(FollowRecord::getBizId, FollowRecord::getCreateTime)
+                        .eq(FollowRecord::getBizType, bizType));
+        Map<Long, LocalDateTime> result = new HashMap<>();
+        for (FollowRecord record : records) {
+            if (record.getBizId() == null || record.getCreateTime() == null) {
+                continue;
+            }
+            result.merge(record.getBizId(), record.getCreateTime(),
+                    (a, b) -> a.isAfter(b) ? a : b);
+        }
+        return result;
+    }
+
+    /**
+     * 手动分配 / 转派负责人：校验目标用户存在且启用，写回 ownerId / deptId。
+     * 操作日志由 OperLogAspect 对 POST 自动记录。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void assign(Long id, Long ownerId) {
+        if (ownerId == null) {
+            throw new BizException("负责人不能为空");
+        }
+        SysUser target = sysUserMapper.selectById(ownerId);
+        if (target == null || target.getStatus() == null || target.getStatus() != 1) {
+            throw new BizException("目标用户不存在或已禁用");
+        }
+        Lead lead = getById(id);
+        if (lead == null) {
+            throw new BizException(ResultCode.DATA_NOT_FOUND, "线索不存在");
+        }
+        lead.setOwnerId(ownerId);
+        lead.setDeptId(target.getDeptId());
+        if (!updateById(lead)) {
+            throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
+        }
     }
 
     // ============================================================ Excel 导入

@@ -11,6 +11,7 @@ import cn.easykits.crm.common.exception.BizException;
 import cn.easykits.crm.entity.Customer;
 import cn.easykits.crm.entity.Opportunity;
 import cn.easykits.crm.entity.OpportunityStage;
+import cn.easykits.crm.entity.SysUser;
 import cn.easykits.crm.mapper.ContactMapper;
 import cn.easykits.crm.mapper.CustomerMapper;
 import cn.easykits.crm.modules.customer.constant.CustomerDicts;
@@ -162,6 +163,30 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
     }
 
     /**
+     * 手动分配 / 转派负责人：校验目标用户存在且启用，写回 ownerId / deptId。
+     * 操作日志由 OperLogAspect 对 POST 自动记录。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void assign(Long id, Long ownerId) {
+        if (ownerId == null) {
+            throw new BizException("负责人不能为空");
+        }
+        SysUser target = sysUserMapper.selectById(ownerId);
+        if (target == null || target.getStatus() == null || target.getStatus() != 1) {
+            throw new BizException("目标用户不存在或已禁用");
+        }
+        Opportunity opportunity = getById(id);
+        if (opportunity == null) {
+            throw new BizException(ResultCode.DATA_NOT_FOUND, "商机不存在");
+        }
+        opportunity.setOwnerId(ownerId);
+        opportunity.setDeptId(target.getDeptId());
+        if (!updateById(opportunity)) {
+            throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
+        }
+    }
+
+    /**
      * 分页查询（customerId/stageCode/ownerId/预计成交时间范围过滤）。
      */
     public PageResult<OpportunityVO> pageQuery(OpportunityQuery query) {
@@ -229,9 +254,10 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
     }
 
     /**
-     * 阶段变更：终态不可变更、目标阶段必须存在且启用；赢单回写实际成交信息并发布
-     * OpportunityWonEvent，丢单必填 lostReason；任意变更发布 OpportunityStageChangedEvent。
-     * 事件统一 AFTER_COMMIT 触发。
+     * 阶段变更：终态不可变更、目标阶段必须存在且启用、按 sort_no 校验流转方向；
+     * 赢单回写实际成交信息并发布 OpportunityWonEvent，丢单必填 lostReason；
+     * 任意变更发布 OpportunityStageChangedEvent。事件统一 AFTER_COMMIT 触发。
+     * <p>阶段顺序/方向校验见 {@link #assertLegalStageTransition(OpportunityStage, OpportunityStage)}。
      */
     @Transactional(rollbackFor = Exception.class)
     public void changeStage(Long id, StageChangeForm form) {
@@ -249,6 +275,8 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         if (to.getEnabled() == null || to.getEnabled() != 1) {
             throw new BizException("目标阶段「%s」已停用".formatted(to.getStageName()));
         }
+        // 顺序/方向校验（crm_opportunity_stage.sort_no）
+        assertLegalStageTransition(from, to);
 
         opportunity.setStageCode(to.getStageCode());
         opportunity.setWinRate(to.getDefaultWinRate());
@@ -260,10 +288,10 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
                     ? form.getActualCloseDate() : LocalDate.now());
             opportunity.setActualAmount(form.getActualAmount() != null
                     ? form.getActualAmount() : opportunity.getAmount());
-            // 客户标记为成交客户（状态 4）
+            // 客户标记为成交客户（状态 4，语义常量 CustomerDicts.STATUS_DEAL）
             Customer customer = customerMapper.selectById(opportunity.getCustomerId());
             if (customer != null) {
-                customer.setStatus(4);
+                customer.setStatus(CustomerDicts.STATUS_DEAL);
                 if (customerMapper.updateById(customer) == 0) {
                     throw new BizException(ResultCode.DATA_CONFLICT, "客户状态更新失败，请刷新后重试");
                 }
@@ -470,6 +498,68 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         if (contact == null || !Objects.equals(contact.getCustomerId(), customerId)) {
             throw new BizException("联系人不存在或不属于当前客户");
         }
+    }
+
+    /**
+     * 阶段流转合法性校验（基于 crm_opportunity_stage.sort_no，仅比较「启用」阶段）。
+     *
+     * <p><b>合法流转矩阵（from → to，sort_no：CONTACT=10 / ANALYSIS=20 / PROPOSAL=30 /
+     * NEGOTIATION=40 / WON=90 / LOST=99）</b>：
+     * <ol>
+     *   <li><b>终态不可逆</b>：from 为 WON(is_won=1) / LOST(is_lost=1) 时禁止任何变更
+     *       （在调用本方法前已由 isTerminal(from) 校验）。</li>
+     *   <li><b>to 必须启用</b>：停用阶段不可进入（在调用本方法前已校验）。</li>
+     *   <li><b>前进</b>（to.sortNo &gt; from.sortNo）：允许跳到任意 sort_no 更大的启用阶段，
+     *       包括终态 WON(90) / LOST(99)。例：CONTACT(10)→PROPOSAL(30)、
+     *       ANALYSIS(20)→WON(90) 均合法。</li>
+     *   <li><b>同级</b>（to.sortNo == from.sortNo）：允许（重复选择当前阶段 / 同序阶段，幂等）。</li>
+     *   <li><b>相邻回退</b>（to.sortNo &lt; from.sortNo）：只允许回退到「紧邻的上一个启用、
+     *       非终态阶段」，即所有启用阶段中 sort_no 小于 from.sortNo 的最大者。
+     *       例：PROPOSAL(30)→ANALYSIS(20) 合法；PROPOSAL(30)→CONTACT(10) 非法；
+     *       NEGOTIATION(40)→PROPOSAL(30) 合法。回退目标不得为 WON/LOST 终态。</li>
+     *   <li>其余跨级回退、回退到停用阶段一律拒绝。</li>
+     * </ol>
+     * 非法跳转抛 BizException，消息同时带上原阶段名与目标阶段名，便于操作日志与前端提示。
+     */
+    private void assertLegalStageTransition(OpportunityStage from, OpportunityStage to) {
+        Integer fromSort = from.getSortNo();
+        Integer toSort = to.getSortNo();
+        if (fromSort == null || toSort == null) {
+            throw new BizException("阶段顺序未配置（sort_no 为空），无法校验「%s」→「%s」"
+                    .formatted(from.getStageName(), to.getStageName()));
+        }
+        int cmp = Integer.compare(toSort, fromSort);
+        if (cmp > 0) {
+            // 前进：允许跳到任意更大 sort_no 的启用阶段
+            return;
+        }
+        if (cmp == 0) {
+            // 同级：幂等，允许
+            return;
+        }
+        // 回退：仅允许相邻回退（紧邻的上一个启用、非终态阶段）
+        if (isTerminal(to)) {
+            throw illegalTransition(from, to, "终态阶段不可作为回退目标");
+        }
+        Integer prevSort = stageMapper.selectList(Wrappers.<OpportunityStage>lambdaQuery()
+                        .eq(OpportunityStage::getEnabled, 1)
+                        .lt(OpportunityStage::getSortNo, fromSort)
+                        .orderByDesc(OpportunityStage::getSortNo))
+                .stream()
+                .filter(s -> !isTerminal(s))
+                .map(OpportunityStage::getSortNo)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        if (prevSort == null || !prevSort.equals(toSort)) {
+            throw illegalTransition(from, to, "只允许回退到紧邻的上一阶段，不允许跨级回退");
+        }
+    }
+
+    private BizException illegalTransition(OpportunityStage from, OpportunityStage to, String reason) {
+        return new BizException("非法阶段流转：「%s」(sort_no=%s) → 「%s」(sort_no=%s)，%s"
+                .formatted(from.getStageName(), from.getSortNo(),
+                        to.getStageName(), to.getSortNo(), reason));
     }
 
     private void assertNotTerminal(Opportunity opportunity) {

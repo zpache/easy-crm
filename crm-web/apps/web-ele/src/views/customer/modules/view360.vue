@@ -5,7 +5,7 @@ import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
-import { ElDescriptions, ElDescriptionsItem, ElEmpty, ElTable } from 'element-plus';
+import { ElDescriptions, ElDescriptionsItem, ElTable } from 'element-plus';
 
 import { getCustomer360 } from '#/api/crm/customer';
 
@@ -67,10 +67,38 @@ const [Drawer, drawerApi] = useVbenDrawer({
       </ElTable>
 
       <div class="mb-2 mt-4 text-sm font-medium">商机（{{ opportunities.length }}）</div>
-      <ElEmpty v-if="opportunities.length === 0" description="商机模块将在后续轮次上线" :image-size="60" />
+      <ElTable :data="opportunities" size="small" border empty-text="暂无商机">
+        <ElTable.TableColumn
+          label="商机名称"
+          min-width="160"
+          prop="name"
+          show-overflow-tooltip
+        />
+        <ElTable.TableColumn label="阶段" prop="stageName" width="110" />
+        <ElTable.TableColumn label="预计金额" width="120">
+          <template #default="{ row }">
+            {{ row.amount == null ? '-' : Number(row.amount).toLocaleString() }}
+          </template>
+        </ElTable.TableColumn>
+        <ElTable.TableColumn label="赢单率%" prop="winRate" width="90" />
+        <ElTable.TableColumn label="负责人" prop="ownerName" width="110" />
+        <ElTable.TableColumn label="预计成交" prop="expectedCloseDate" width="120" />
+        <ElTable.TableColumn label="创建时间" prop="createTime" width="160" />
+      </ElTable>
 
       <div class="mb-2 mt-4 text-sm font-medium">跟进记录（{{ followRecords.length }}）</div>
-      <ElEmpty v-if="followRecords.length === 0" description="跟进记录模块将在后续轮次上线" :image-size="60" />
+      <ElTable :data="followRecords" size="small" border empty-text="暂无跟进记录">
+        <ElTable.TableColumn label="跟进类型" prop="followTypeName" width="100" />
+        <ElTable.TableColumn
+          label="跟进内容"
+          min-width="220"
+          prop="content"
+          show-overflow-tooltip
+        />
+        <ElTable.TableColumn label="跟进人" prop="ownerName" width="110" />
+        <ElTable.TableColumn label="下次跟进" prop="nextFollowTime" width="160" />
+        <ElTable.TableColumn label="跟进时间" prop="createTime" width="160" />
+      </ElTable>
     </template>
   </Drawer>
 </template>

@@ -6,11 +6,9 @@ import { Page } from '@vben/common-ui';
 import { ElButton, ElMessage } from 'element-plus';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMessages, readAllMessages } from '#/api/message';
-import { SYSTEM_PERMISSIONS } from '#/constants/permissions';
-import { $t } from '#/locales';
+import { getReminders, readAllReminders } from '#/api/crm/reminder';
 
-import { useColumns, useGridFormSchema } from './data';
+import { REMINDER_PERMISSIONS, useColumns, useGridFormSchema } from './data';
 
 defineOptions({ name: 'MessageCenter' });
 
@@ -26,11 +24,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
     proxyConfig: {
       ajax: {
         query: async ({ page }, formValues) => {
-          return await getMessages({
+          return await getReminders({
             onlyUnread: formValues?.onlyUnread,
             pageNum: page.currentPage,
             pageSize: page.pageSize,
-            type: formValues?.type,
           });
         },
       },
@@ -46,26 +43,26 @@ const [Grid, gridApi] = useVbenVxeGrid({
   } as VxeTableGridOptions,
 });
 
-/** 全部已读是全局操作：一条消息只能被处理一次 */
+/** 全部已读：作用于当前登录用户的未读提醒 */
 async function handleReadAll() {
-  await readAllMessages();
-  ElMessage.success($t('message.readAllSuccess'));
+  await readAllReminders();
+  ElMessage.success('已全部标记为已读');
   gridApi.query();
 }
 </script>
 
 <template>
   <Page auto-content-height>
-    <Grid :table-title="$t('message.list')">
+    <Grid table-title="消息提醒">
       <template #toolbar-tools>
         <ElButton
-          v-access:code="SYSTEM_PERMISSIONS.messageReadAll"
+          v-access:code="REMINDER_PERMISSIONS.read"
           class="mr-2"
           plain
           type="primary"
           @click="handleReadAll"
         >
-          {{ $t('message.readAll') }}
+          全部已读
         </ElButton>
       </template>
     </Grid>

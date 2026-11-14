@@ -7,6 +7,9 @@ import { LEAD_SOURCES, LEAD_STATUSES } from '#/api/crm/lead';
 import { usePermission } from '#/composables/use-permission';
 import { CRM_PERMISSIONS } from '#/constants/permissions';
 
+/** 线索分配权限码（与后端 @PreAuthorize 一致，由统一整合方登记到 permissions.ts） */
+export const LEAD_ASSIGN_PERMISSION = 'crm:lead:assign';
+
 /**
  * 线索创建 / 编辑表单
  */
@@ -195,7 +198,9 @@ export function useColumns<T = LeadApi.Lead>(
   const canConvert = can(CRM_PERMISSIONS.leadConvert);
   const canPool = can(CRM_PERMISSIONS.leadToPool);
   const canClaim = can(CRM_PERMISSIONS.leadClaim);
+  const canAssign = can(LEAD_ASSIGN_PERMISSION);
   return [
+    { type: 'checkbox', width: 50, fixed: 'left' },
     { field: 'name', minWidth: 150, title: '线索名称' },
     { field: 'contactName', title: '联系人', width: 90 },
     { field: 'phone', title: '手机号', width: 130 },
@@ -231,6 +236,11 @@ export function useColumns<T = LeadApi.Lead>(
           // 编辑 / 转化 / 放入公海：仅未转化的线索；领取：仅公海线索
           { code: 'edit', show: (row: LeadApi.Lead) => canUpdate && row.status !== 2 },
           {
+            code: 'assign',
+            show: (row: LeadApi.Lead) => canAssign && row.status !== 2,
+            text: '分配',
+          },
+          {
             code: 'convert',
             show: (row: LeadApi.Lead) => canConvert && row.status === 0 || row.status === 1,
             text: '转化',
@@ -250,7 +260,7 @@ export function useColumns<T = LeadApi.Lead>(
       field: 'operation',
       fixed: 'right',
       title: '操作',
-      width: 220,
+      width: 280,
     },
   ];
 }

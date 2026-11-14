@@ -10,12 +10,23 @@ import cn.easykits.crm.common.context.LoginUserContext;
 import cn.easykits.crm.common.exception.BizException;
 import cn.easykits.crm.entity.Contact;
 import cn.easykits.crm.entity.Customer;
+import cn.easykits.crm.entity.FollowRecord;
 import cn.easykits.crm.entity.Lead;
+import cn.easykits.crm.entity.Opportunity;
+import cn.easykits.crm.entity.OpportunityStage;
+import cn.easykits.crm.entity.SysUser;
+import cn.easykits.crm.entity.Task;
 import cn.easykits.crm.mapper.ContactMapper;
 import cn.easykits.crm.mapper.CustomerMapper;
+import cn.easykits.crm.mapper.FollowRecordMapper;
 import cn.easykits.crm.mapper.LeadMapper;
+import cn.easykits.crm.mapper.OpportunityMapper;
+import cn.easykits.crm.mapper.OpportunityStageMapper;
+import cn.easykits.crm.mapper.TaskMapper;
 import cn.easykits.crm.modules.customer.CustomerService;
 import cn.easykits.crm.modules.customer.constant.CustomerDicts;
+import cn.easykits.crm.modules.follow.constant.FollowBizTypes;
+import cn.easykits.crm.modules.follow.constant.FollowTypes;
 import cn.easykits.crm.modules.customer.dto.CustomerCreateForm;
 import cn.easykits.crm.modules.customer.dto.CustomerInfo;
 import cn.easykits.crm.modules.customer.dto.CustomerQuery;
@@ -29,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +65,10 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
     private final LeadMapper leadMapper;
     private final cn.easykits.crm.mapper.SysUserMapper sysUserMapper;
     private final cn.easykits.crm.mapper.SysDeptMapper sysDeptMapper;
+    private final OpportunityMapper opportunityMapper;
+    private final OpportunityStageMapper stageMapper;
+    private final FollowRecordMapper followRecordMapper;
+    private final TaskMapper taskMapper;
 
     // ============================================================ 领域接口（线索转化）
 
@@ -178,8 +194,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
     }
 
     /**
-     * 客户 360 视图：固定 2 次查询（客户 + 联系人），商机 / 跟进记录轮次 3/4 后填充，
-     * 当前返回空数组——查询次数不随联系人数增长。
+     * 客户 360 视图：基本信息 + 联系人 + 商机 + 跟进记录。
+     * 商机按 customer_id、跟进记录按 biz_type='customer' AND biz_id=客户ID 查询；
+     * crm_opportunity / crm_follow_record 均已注册行级数据权限，拦截器按登录用户自动注入。
      */
     public Customer360VO view360(Long id) {
         Customer customer = getById(id);
@@ -202,19 +219,72 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
                         "position", c.getPosition() == null ? "" : c.getPosition(),
                         "isPrimary", c.getIsPrimary() != null && c.getIsPrimary() == 1))
                 .toList();
+
+        // 商机（按 customer_id，一次查询 + 一次阶段名 + 一次负责人名）
+        List<Opportunity> opportunities = opportunityMapper.selectList(
+                Wrappers.<Opportunity>lambdaQuery()
+                        .eq(Opportunity::getCustomerId, id)
+                        .orderByDesc(Opportunity::getId));
+        Map<String, String> stageNameMap = stageMapper.selectList(
+                        Wrappers.<OpportunityStage>lambdaQuery())
+                .stream()
+                .collect(Collectors.toMap(OpportunityStage::getStageCode,
+                        OpportunityStage::getStageName, (a, b) -> a));
+        List<Long> oppOwnerIds = opportunities.stream().map(Opportunity::getOwnerId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, String> oppOwnerNames = oppOwnerIds.isEmpty() ? Map.of()
+                : sysUserMapper.selectBatchIds(oppOwnerIds).stream()
+                .collect(Collectors.toMap(u -> u.getId(), u -> u.getNickname()));
+        List<Map<String, Object>> opportunityList = opportunities.stream().map(o -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", o.getId());
+            m.put("name", o.getName());
+            m.put("stageCode", o.getStageCode());
+            m.put("stageName", stageNameMap.getOrDefault(o.getStageCode(), o.getStageCode()));
+            m.put("amount", o.getAmount());
+            m.put("winRate", o.getWinRate());
+            m.put("expectedCloseDate", o.getExpectedCloseDate());
+            m.put("ownerName", o.getOwnerId() == null ? null : oppOwnerNames.get(o.getOwnerId()));
+            m.put("createTime", o.getCreateTime());
+            return m;
+        }).toList();
+
+        // 跟进记录（按 biz_type='customer' AND biz_id=客户ID，取最近 50 条）
+        Page<FollowRecord> followPage = new Page<>(1, 50);
+        List<FollowRecord> followRecords = followRecordMapper.selectPage(followPage,
+                Wrappers.<FollowRecord>lambdaQuery()
+                        .eq(FollowRecord::getBizType, FollowBizTypes.CUSTOMER)
+                        .eq(FollowRecord::getBizId, id)
+                        .orderByDesc(FollowRecord::getCreateTime)).getRecords();
+        List<Long> followOwnerIds = followRecords.stream().map(FollowRecord::getOwnerId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, String> followOwnerNames = followOwnerIds.isEmpty() ? Map.of()
+                : sysUserMapper.selectBatchIds(followOwnerIds).stream()
+                .collect(Collectors.toMap(u -> u.getId(), u -> u.getNickname()));
+        List<Map<String, Object>> followList = followRecords.stream().map(f -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", f.getId());
+            m.put("followType", f.getFollowType());
+            m.put("followTypeName", FollowTypes.labelOf(f.getFollowType()));
+            m.put("content", f.getContent());
+            m.put("nextFollowTime", f.getNextFollowTime());
+            m.put("ownerName", f.getOwnerId() == null ? null : followOwnerNames.get(f.getOwnerId()));
+            m.put("createTime", f.getCreateTime());
+            return m;
+        }).toList();
+
         Customer360VO vo = new Customer360VO();
         vo.setCustomer(customerVO);
         vo.setContacts(contactList);
-        // TODO（轮次 3 商机表建立后）：opportunities 按 customer_id 查询填充
-        vo.setOpportunities(List.of());
-        // TODO（轮次 4 跟进记录表建立后）：followRecords 按 related_customer_id 查询填充
-        vo.setFollowRecords(List.of());
+        vo.setOpportunities(opportunityList);
+        vo.setFollowRecords(followList);
         return vo;
     }
 
     /**
-     * 客户合并：B（source）合并到 A（target）。事务内迁移联系人、线索转化关联；
-     * 商机 / 跟进记录迁移 TODO（轮次 3 / 4）。合并后 B 标记已合并，不再出现在默认列表。
+     * 客户合并：B（source）合并到 A（target）。同一事务内迁移联系人、线索转化关联、
+     * 商机 / 跟进记录 / 待办任务的多态关联；合并后 B 标记已合并，不再出现在默认列表。
+     * 跨表写统一用各表 Mapper 的 lambdaUpdate，并校验迁移结果，失败抛 BizException 回滚整笔事务。
      */
     @Transactional(rollbackFor = Exception.class)
     public void merge(Long sourceId, Long targetId) {
@@ -254,10 +324,55 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
                 .eq(Lead::getConvertedCustomerId, sourceId)
                 .set(Lead::getConvertedCustomerId, targetId));
 
-        // TODO（轮次 3 商机表建立后）：UPDATE crm_opportunity SET customer_id = target WHERE customer_id = source
-        // TODO（轮次 4 跟进记录表建立后）：UPDATE crm_follow_record SET customer_id = target WHERE customer_id = source
+        // 3. 迁移商机（customer_id）
+        long oppCount = opportunityMapper.selectCount(Wrappers.<Opportunity>lambdaQuery()
+                .eq(Opportunity::getCustomerId, sourceId));
+        if (oppCount > 0) {
+            int migrated = opportunityMapper.update(null, Wrappers.<Opportunity>lambdaUpdate()
+                    .eq(Opportunity::getCustomerId, sourceId)
+                    .set(Opportunity::getCustomerId, targetId));
+            if (migrated < oppCount
+                    || opportunityMapper.selectCount(Wrappers.<Opportunity>lambdaQuery()
+                    .eq(Opportunity::getCustomerId, sourceId)) > 0) {
+                throw new BizException("客户合并失败：商机归属迁移未完成，已回滚");
+            }
+        }
 
-        // 3. 源客户标记已合并（乐观锁冲突即整体回滚，审查报告 #3）
+        // 4. 迁移跟进记录（仅 biz_type='customer'，多态关联 biz_id）
+        long followCount = followRecordMapper.selectCount(Wrappers.<FollowRecord>lambdaQuery()
+                .eq(FollowRecord::getBizType, FollowBizTypes.CUSTOMER)
+                .eq(FollowRecord::getBizId, sourceId));
+        if (followCount > 0) {
+            int migrated = followRecordMapper.update(null, Wrappers.<FollowRecord>lambdaUpdate()
+                    .eq(FollowRecord::getBizType, FollowBizTypes.CUSTOMER)
+                    .eq(FollowRecord::getBizId, sourceId)
+                    .set(FollowRecord::getBizId, targetId));
+            if (migrated < followCount
+                    || followRecordMapper.selectCount(Wrappers.<FollowRecord>lambdaQuery()
+                    .eq(FollowRecord::getBizType, FollowBizTypes.CUSTOMER)
+                    .eq(FollowRecord::getBizId, sourceId)) > 0) {
+                throw new BizException("客户合并失败：跟进记录归属迁移未完成，已回滚");
+            }
+        }
+
+        // 5. 迁移待办任务（仅 biz_type='customer'，多态关联 biz_id）
+        long taskCount = taskMapper.selectCount(Wrappers.<Task>lambdaQuery()
+                .eq(Task::getBizType, FollowBizTypes.CUSTOMER)
+                .eq(Task::getBizId, sourceId));
+        if (taskCount > 0) {
+            int migrated = taskMapper.update(null, Wrappers.<Task>lambdaUpdate()
+                    .eq(Task::getBizType, FollowBizTypes.CUSTOMER)
+                    .eq(Task::getBizId, sourceId)
+                    .set(Task::getBizId, targetId));
+            if (migrated < taskCount
+                    || taskMapper.selectCount(Wrappers.<Task>lambdaQuery()
+                    .eq(Task::getBizType, FollowBizTypes.CUSTOMER)
+                    .eq(Task::getBizId, sourceId)) > 0) {
+                throw new BizException("客户合并失败：待办任务归属迁移未完成，已回滚");
+            }
+        }
+
+        // 6. 源客户标记已合并（乐观锁冲突即整体回滚，审查报告 #3）
         source.setStatus(STATUS_MERGED);
         source.setMergedToId(targetId);
         if (!updateById(source)) {
@@ -316,23 +431,83 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
     }
 
     /**
-     * 公海自动回收：正常状态且超过 N 天无跟进的客户回退公海。
-     * 由 CustomerRecycleTask 定时调用（cron：application.yml easy-crm.customer.recycle-cron）。
+     * 公海自动回收：以 crm_follow_record 中该客户最近一条跟进记录的 create_time 为准，
+     * 无跟进记录时回退 last_follow_time，再回退 create_time；超过 N 天才回收。
+     * <p>边界：活动时间「恰好等于」deadline（即恰好 N 天）不回收；无任何时间依据也不回收（保守）。
+     * 由 CustomerRecycleTask 在 runAsSystem 上下文定时调用。
      */
     @Transactional(rollbackFor = Exception.class)
     public int recycleIdleToPool(int idleDays) {
         LocalDateTime deadline = LocalDateTime.now().minusDays(idleDays);
-        List<Customer> idle = list(Wrappers.<Customer>lambdaQuery()
+        // 一次查询聚合该业务类型全部跟进记录，避免按客户循环查库（N+1）
+        Map<Long, LocalDateTime> latestFollowMap = latestFollowTimeMap(FollowBizTypes.CUSTOMER);
+        List<Customer> candidates = list(Wrappers.<Customer>lambdaQuery()
                 .eq(Customer::getStatus, STATUS_NORMAL)
-                .isNotNull(Customer::getOwnerId)
-                .lt(Customer::getLastFollowTime, deadline));
-        for (Customer customer : idle) {
+                .isNotNull(Customer::getOwnerId));
+        int recycled = 0;
+        for (Customer customer : candidates) {
+            LocalDateTime base = latestFollowMap.get(customer.getId());
+            if (base == null) {
+                base = customer.getLastFollowTime() != null
+                        ? customer.getLastFollowTime() : customer.getCreateTime();
+            }
+            // 严格小于阈值才回收：恰好 N 天（== deadline）不回收；无时间依据不回收
+            if (base == null || !base.isBefore(deadline)) {
+                continue;
+            }
             customer.setStatus(STATUS_POOL);
             customer.setOwnerId(null);
             customer.setDeptId(null);
-            updateById(customer);
+            if (!updateById(customer)) {
+                throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
+            }
+            recycled++;
         }
-        return idle.size();
+        return recycled;
+    }
+
+    /**
+     * 一次查询指定业务类型的全部跟进记录（仅取 biz_id / create_time），
+     * 在内存聚合出每个业务对象的最近跟进时间；查询次数固定为 1，不随对象数增长。
+     */
+    private Map<Long, LocalDateTime> latestFollowTimeMap(String bizType) {
+        List<FollowRecord> records = followRecordMapper.selectList(
+                Wrappers.<FollowRecord>lambdaQuery()
+                        .select(FollowRecord::getBizId, FollowRecord::getCreateTime)
+                        .eq(FollowRecord::getBizType, bizType));
+        Map<Long, LocalDateTime> result = new HashMap<>();
+        for (FollowRecord record : records) {
+            if (record.getBizId() == null || record.getCreateTime() == null) {
+                continue;
+            }
+            result.merge(record.getBizId(), record.getCreateTime(),
+                    (a, b) -> a.isAfter(b) ? a : b);
+        }
+        return result;
+    }
+
+    /**
+     * 手动分配 / 转派负责人：校验目标用户存在且启用，写回 ownerId / deptId。
+     * 操作日志由 OperLogAspect 对 POST 自动记录。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void assign(Long id, Long ownerId) {
+        if (ownerId == null) {
+            throw new BizException("负责人不能为空");
+        }
+        SysUser target = sysUserMapper.selectById(ownerId);
+        if (target == null || target.getStatus() == null || target.getStatus() != 1) {
+            throw new BizException("目标用户不存在或已禁用");
+        }
+        Customer customer = getById(id);
+        if (customer == null) {
+            throw new BizException(ResultCode.DATA_NOT_FOUND, "客户不存在");
+        }
+        customer.setOwnerId(ownerId);
+        customer.setDeptId(target.getDeptId());
+        if (!updateById(customer)) {
+            throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
+        }
     }
 
     // ============================================================ 私有工具

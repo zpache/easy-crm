@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -110,6 +111,14 @@ public class OpportunityController {
     @PreAuthorize("hasAuthority('crm:opportunity:stage-manage')")
     public Result<Void> updateStage(@PathVariable Long id, @Valid @RequestBody StageForm form) {
         opportunityService.updateStage(id, form);
+        return Result.ok();
+    }
+
+    @Operation(summary = "分配/转派负责人（校验目标用户存在且启用）")
+    @PostMapping("/{id}/assign")
+    @PreAuthorize("hasAuthority('crm:opportunity:assign')")
+    public Result<Void> assign(@PathVariable Long id, @RequestParam Long ownerId) {
+        opportunityService.assign(id, ownerId);
         return Result.ok();
     }
 }

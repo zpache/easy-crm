@@ -170,7 +170,15 @@ async function updateStage(id: number, data: OpportunityApi.StagePayload) {
   return requestClient.put(`/opportunities/stages/${id}`, data);
 }
 
+/** 分配 / 转派负责人 */
+async function assignOpportunity(id: number, ownerId: number) {
+  return requestClient.post(`/opportunities/${id}/assign`, null, {
+    params: { ownerId },
+  });
+}
+
 export {
+  assignOpportunity,
   changeStage,
   createOpportunity,
   createStage,

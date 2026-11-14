@@ -150,6 +150,13 @@ async function claimLead(id: number) {
   return requestClient.post(`/leads/${id}/claim`);
 }
 
+/** 分配 / 转派负责人 */
+async function assignLead(id: number, ownerId: number) {
+  return requestClient.post(`/leads/${id}/assign`, null, {
+    params: { ownerId },
+  });
+}
+
 /**
  * Excel 批量导入
  */
@@ -162,6 +169,7 @@ async function importLeads(file: File) {
 }
 
 export {
+  assignLead,
   claimLead,
   convertLead,
   createLead,

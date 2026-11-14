@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 客户 360 视图：固定查询次数（客户 + 联系人各一次），不随联系人数增长。
- * 商机 / 跟进记录列表在对应表建立后填充（轮次 3 / 4），当前返回空数组。
+ * 客户 360 视图：基本信息 + 联系人 + 商机 + 跟进记录。
+ * 商机按 customer_id、跟进记录按 biz_type='customer' AND biz_id 查询，均受行级数据权限约束。
  */
 @Data
 public class Customer360VO {
@@ -18,9 +18,9 @@ public class Customer360VO {
     /** 联系人列表（主联系人排最前） */
     private List<Map<String, Object>> contacts;
 
-    /** 商机列表（TODO：轮次 3 商机表建立后填充） */
+    /** 商机列表 */
     private List<Map<String, Object>> opportunities;
 
-    /** 跟进记录（TODO：轮次 4 跟进记录表建立后填充） */
+    /** 跟进记录（最近若干条，按 create_time 倒序） */
     private List<Map<String, Object>> followRecords;
 }

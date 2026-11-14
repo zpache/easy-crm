@@ -20,6 +20,9 @@ export const stageOptions = ref<Array<{ stageCode: string; stageName: string }>>
 /** 已加载的联系人候选缓存：customerId -> options（选客户后联动加载） */
 const contactCache = ref<Record<number, Array<{ id: number; name: string }>>>({});
 
+/** 商机分配权限码（与后端 @PreAuthorize 一致，由统一整合方登记到 permissions.ts） */
+export const OPPORTUNITY_ASSIGN_PERMISSION = 'crm:opportunity:assign';
+
 /** 停滞等级标签 */
 export const STALE_LEVEL_OPTIONS = [
   { label: '正常', type: 'success', value: 0 },
@@ -230,7 +233,9 @@ export function useColumns<T = OpportunityApi.Opportunity>(
   const { can } = usePermission();
   const canUpdate = can(OPPORTUNITY_PERMISSIONS.update);
   const canStage = can(OPPORTUNITY_PERMISSIONS.stage);
+  const canAssign = can(OPPORTUNITY_ASSIGN_PERMISSION);
   return [
+    { type: 'checkbox', width: 50, fixed: 'left' },
     { field: 'name', minWidth: 150, title: '商机名称' },
     { field: 'customerName', minWidth: 140, title: '客户' },
     { field: 'contactName', title: '联系人', width: 100 },
@@ -266,12 +271,13 @@ export function useColumns<T = OpportunityApi.Opportunity>(
         options: [
           { code: 'edit', show: canUpdate },
           { code: 'stage', show: canStage, text: '变更阶段' },
+          { code: 'assign', show: canAssign, text: '分配' },
         ],
       },
       field: 'operation',
       fixed: 'right',
       title: '操作',
-      width: 180,
+      width: 220,
     },
   ];
 }

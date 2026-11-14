@@ -22,7 +22,7 @@ export namespace CustomerApi {
     remark?: string;
     scale?: null | number;
     scaleName?: string;
-    status: 1 | 2 | 3;
+    status: 1 | 2 | 3 | 4;
     statusName?: string;
     version?: number;
   }
@@ -94,6 +94,7 @@ export const CUSTOMER_STATUS = [
   { label: '正常', value: 1 },
   { label: '公海', value: 2 },
   { label: '已合并', value: 3 },
+  { label: '成交客户', value: 4 },
 ] as const;
 
 /**
@@ -144,7 +145,15 @@ async function claimCustomer(id: number) {
   return requestClient.post(`/customers/${id}/claim`);
 }
 
+/** 分配 / 转派负责人 */
+async function assignCustomer(id: number, ownerId: number) {
+  return requestClient.post(`/customers/${id}/assign`, null, {
+    params: { ownerId },
+  });
+}
+
 export {
+  assignCustomer,
   claimCustomer,
   createCustomer,
   customerToPool,
