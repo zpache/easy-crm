@@ -121,6 +121,14 @@ Java 25 · Spring Boot 4.1.2 · MyBatis-Plus 3.5.18（`mybatis-plus-spring-boot4
 - 公海：与线索规则独立配置（easy-crm.customer.recycle-days 默认 30，cron recycle-cron 默认每天 02:30）
 - 行级数据权限：crm_customer 已注册；联系人可见性随客户
 
+### 跟进记录与待办任务（modules/follow、modules/task，表 crm_follow_record / crm_task / crm_opportunity_stage_log）
+
+- 多态关联：**biz_type + biz_id 字段方案**（跨线索/客户/商机/订单统一，索引友好；项目无外键 + 逻辑删除体系不适合 DB 外键，理由见 DDL 注释）
+- 活动时间更新：**策略模式** `FollowActivityUpdater`（lead/customer 各自更新 last_follow_time，opportunity 更新 last_activity_at），注册器按 biz_type 分发，新增业务类型加实现类即可
+- 时间线 `GET /timeline`：一条 UNION ALL SQL（跟进+待办+阶段变更日志）全局排序分页 + 同构计数查询，不会错位；阶段变更历史由 crm_opportunity_stage_log 还原（与阶段变更同事务写入）
+- 待办：跟进记录填 next_follow_time 自动生成任务（source=FOLLOW）；「已过期」= 未完成且超期，**查询时动态计算不落库**（避免每分钟扫表，判定永远精确）
+- 行级数据权限：crm_follow_record（owner+dept）、crm_task（owner）已注册
+
 ## 运行
 
 ```bash

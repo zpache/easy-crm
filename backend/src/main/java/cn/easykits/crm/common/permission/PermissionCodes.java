@@ -36,7 +36,11 @@ public final class PermissionCodes {
 
             // 商机管理
             "crm:opportunity:list", "crm:opportunity:create", "crm:opportunity:update",
-            "crm:opportunity:stage", "crm:opportunity:forecast", "crm:opportunity:stage-manage"
+            "crm:opportunity:stage", "crm:opportunity:forecast", "crm:opportunity:stage-manage",
+
+            // 跟进记录 / 待办任务
+            "crm:follow:list", "crm:follow:create", "crm:follow:update", "crm:follow:delete",
+            "crm:task:list", "crm:task:create", "crm:task:update", "crm:task:complete"
     );
 
     private PermissionCodes() {

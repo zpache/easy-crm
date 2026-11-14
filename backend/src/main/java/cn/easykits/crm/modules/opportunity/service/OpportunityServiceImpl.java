@@ -70,6 +70,7 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
     private final cn.easykits.crm.mapper.OpportunityStageMapper stageMapper;
     private final cn.easykits.crm.mapper.SysUserMapper sysUserMapper;
     private final cn.easykits.crm.mapper.SysDeptMapper sysDeptMapper;
+    private final cn.easykits.crm.mapper.OpportunityStageLogMapper stageLogMapper;
     private final ApplicationEventPublisher eventPublisher;
 
     // ============================================================ 领域接口（线索转化）
@@ -271,6 +272,16 @@ public class OpportunityServiceImpl extends ServiceImpl<cn.easykits.crm.mapper.O
         if (!updateById(opportunity)) {
             throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
         }
+
+        // 阶段变更日志：与阶段变更同一事务写入，时间线视图据此还原阶段历史
+        cn.easykits.crm.entity.OpportunityStageLog stageLog = new cn.easykits.crm.entity.OpportunityStageLog();
+        stageLog.setOpportunityId(opportunity.getId());
+        stageLog.setFromStage(from.getStageCode());
+        stageLog.setToStage(to.getStageCode());
+        LoginUser operator = LoginUserContext.get();
+        stageLog.setOperatorId(operator == null ? opportunity.getOwnerId() : operator.userId());
+        stageLog.setChangeTime(LocalDateTime.now());
+        stageLogMapper.insert(stageLog);
 
         // 事件：事务提交后由 AFTER_COMMIT 监听器消费
         eventPublisher.publishEvent(new OpportunityStageChangedEvent(

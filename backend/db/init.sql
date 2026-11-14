@@ -332,6 +332,68 @@ CREATE TABLE IF NOT EXISTS crm_reminder (
     KEY idx_owner_read (owner_id, read_flag)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='提醒记录';
 
+-- ---------------------------------------------------------------- 跟进记录
+-- 多态关联选型：biz_type + biz_id 字段方案（理由见 AGENTS/README）：
+-- 跟进/待办跨线索、客户、商机、订单多类业务，字段方案索引友好（biz_type+biz_id），
+-- 时间线聚合天然按此查询；项目全程无外键 + 逻辑删除体系也不适合 DB 外键约束。
+CREATE TABLE IF NOT EXISTS crm_follow_record (
+    id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    biz_type         VARCHAR(32)     NOT NULL COMMENT '业务类型：lead / customer / opportunity / order（轮次5）',
+    biz_id           BIGINT UNSIGNED NOT NULL COMMENT '业务 ID',
+    follow_type      VARCHAR(32)     NOT NULL COMMENT '跟进类型字典：PHONE / VISIT / EMAIL / WECHAT / OTHER（后续迁字典表）',
+    content          VARCHAR(1000)   NOT NULL COMMENT '跟进内容',
+    next_follow_time DATETIME        NULL COMMENT '下次跟进时间（填写则自动生成待办任务）',
+    owner_id         BIGINT UNSIGNED NULL COMMENT '跟进人',
+    dept_id          BIGINT UNSIGNED NULL COMMENT '跟进人部门',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_biz (biz_type, biz_id),
+    KEY idx_owner (owner_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='跟进记录';
+
+-- ---------------------------------------------------------------- 待办任务
+-- status 落库仅 0 待办 / 1 已完成；「已过期」查询时动态计算（due_time < NOW 且未完成），
+-- 避免每分钟定时任务扫表写状态（见 README 决策说明）。
+CREATE TABLE IF NOT EXISTS crm_task (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    title       VARCHAR(128)    NOT NULL COMMENT '任务标题',
+    content     VARCHAR(1000)   NULL COMMENT '任务内容',
+    due_time    DATETIME        NOT NULL COMMENT '截止时间',
+    status      TINYINT         NOT NULL DEFAULT 0 COMMENT '0 待办 / 1 已完成（已过期动态计算）',
+    biz_type    VARCHAR(32)     NULL COMMENT '关联业务类型（可空=独立待办）',
+    biz_id      BIGINT UNSIGNED NULL COMMENT '关联业务 ID',
+    owner_id    BIGINT UNSIGNED NULL COMMENT '负责人',
+    source      VARCHAR(16)     NOT NULL DEFAULT 'MANUAL' COMMENT '来源：MANUAL 手动 / FOLLOW 跟进记录生成',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT       NULL,
+    update_by   BIGINT       NULL,
+    version     INT          NOT NULL DEFAULT 0,
+    deleted     TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_owner_status (owner_id, status),
+    KEY idx_due_time (due_time)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='待办任务';
+
+-- ---------------------------------------------------------------- 商机阶段变更日志
+-- 与阶段变更同事务写入；时间线视图据此还原阶段历史
+CREATE TABLE IF NOT EXISTS crm_opportunity_stage_log (
+    id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    opportunity_id BIGINT UNSIGNED NOT NULL COMMENT '商机 ID',
+    from_stage     VARCHAR(32)     NULL COMMENT '原阶段编码（创建时为空）',
+    to_stage       VARCHAR(32)     NOT NULL COMMENT '新阶段编码',
+    operator_id    BIGINT UNSIGNED NULL COMMENT '操作人',
+    change_time    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    remark         VARCHAR(255)    NULL,
+    PRIMARY KEY (id),
+    KEY idx_opportunity_id (opportunity_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='商机阶段变更日志';
+
 -- =====================================================================
 -- 初始数据：admin / admin123（仅开发环境，上线前改密）
 -- 密码为 BCrypt(cost=10)，与 SecurityConfig 的 BCryptPasswordEncoder 匹配
@@ -382,5 +444,7 @@ VALUES
     (13, 12, 'CustomerList',   '客户列表', 'menu',    'crm:customer:list', '/customer/list',      'customer/list',           'lucide:building',        10, 1),
     (14, 12, 'ContactList',    '联系人列表', 'menu',  'crm:contact:list',  '/customer/contact',   'contact/list',            'lucide:users',           20, 1),
     (15, 0, 'OppManage',       '商机管理', 'catalog', NULL,                '/opportunity',        NULL,                      'lucide:target',          45, 1),
-    (16, 15, 'OppList',        '商机列表', 'menu',    'crm:opportunity:list','/opportunity/list', 'opportunity/list',        'lucide:kanban',          10, 1)
+    (16, 15, 'OppList',        '商机列表', 'menu',    'crm:opportunity:list','/opportunity/list', 'opportunity/list',        'lucide:kanban',          10, 1),
+    (17, 0, 'TaskManage',      '待办任务', 'catalog', NULL,                '/task',               NULL,                      'lucide:check-square',    70, 1),
+    (18, 17, 'TaskList',       '任务列表', 'menu',    'crm:task:list',     '/task/list',          'task/list',               'lucide:list-checks',     10, 1)
 ON DUPLICATE KEY UPDATE title = VALUES(title), status = VALUES(status);

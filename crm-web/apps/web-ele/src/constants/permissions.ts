@@ -192,3 +192,10 @@ export const OPPORTUNITY_PERMISSIONS = {
   stageManage: 'crm:opportunity:stage-manage',
   update: 'crm:opportunity:update',
 } as const;
+
+export const TASK_PERMISSIONS = {
+  complete: 'crm:task:complete',
+  create: 'crm:task:create',
+  list: 'crm:task:list',
+  update: 'crm:task:update',
+} as const;
