@@ -26,13 +26,18 @@ import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * 操作日志切面：自动采集管理端所有写操作（POST / PUT / DELETE）。
  *
  * <p>模块与操作名直接取控制器上的 Swagger 注解（@Tag name / @Operation summary），
  * 无需业务代码打注标；登录接口（auth 包）已由登录日志单独记录，这里跳过。
- * 日志写入失败只打 warn，绝不影响业务。</p>
+ * 日志写入失败只打 warn，绝不影响业务。
+ *
+ * <p><b>敏感字段脱敏</b>：请求参数序列化后，字段名命中 password / secret / token /
+ * credential / apiKey / privateKey / idCard / phone / mobile 等关键字的字符串值一律替换为
+ * {@code ***}，避免新增用户、重置密码、自助改密等接口把明文口令写进 sys_oper_log。
  */
 @Slf4j
 @Aspect
@@ -40,8 +45,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OperLogAspect {
 
-    /** 参数序列化上限（字符），超长截断 */
     private static final int PARAMS_MAX = 2000;
+
+    /** 匹配 JSON 中 "敏感键": "任意字符串值"（含嵌套对象，兼容转义引号）。 */
+    private static final Pattern SENSITIVE_PAIR = Pattern.compile(
+            "\"([^\"]*(?:password|secret|token|credential|api[_-]?key|private[_-]?key|id[_-]?card|phone|mobile)[^\"]*)\""
+                    + "\\s*:\\s*\"(?:[^\"\\\\]|\\\\.)*\"",
+            Pattern.CASE_INSENSITIVE);
 
     private final SysOperLogMapper operLogMapper;
     private final ObjectMapper objectMapper;
@@ -95,7 +105,7 @@ public class OperLogAspect {
                 logEntry.setUri(truncate(request.getRequestURI(), 255));
                 logEntry.setIp(ClientIpResolver.clientIp(request));
             }
-            logEntry.setParams(truncate(serializeArgs(signature, joinPoint.getArgs()), PARAMS_MAX));
+            logEntry.setParams(truncate(maskSensitive(serializeArgs(signature, joinPoint.getArgs())), PARAMS_MAX));
             logEntry.setResultCode(resultCode);
             logEntry.setErrorMsg(truncate(errorMsg, 500));
             logEntry.setCreatedAt(LocalDateTime.now());
@@ -105,7 +115,7 @@ public class OperLogAspect {
         }
     }
 
-    /** 参数按方法形参名序列化：文件参数只记文件名与大小，请求对象跳过 */
+    /** 参数按方法形参名序列化：文件参数只记文件名与大小，请求对象跳过。 */
     private String serializeArgs(MethodSignature signature, Object[] args) {
         if (args == null || args.length == 0) {
             return "";
@@ -131,6 +141,14 @@ public class OperLogAspect {
         } catch (Exception e) {
             return "<unserializable>";
         }
+    }
+
+    /** 把敏感字段的字符串值替换为 ***，键名保留以便审计知道「改过密码」。 */
+    private String maskSensitive(String json) {
+        if (!StringUtils.hasText(json)) {
+            return json;
+        }
+        return SENSITIVE_PAIR.matcher(json).replaceAll("\"$1\":\"***\"");
     }
 
     private String paramName(String[] names, int index, String fallback) {

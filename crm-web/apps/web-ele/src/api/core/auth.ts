@@ -1,3 +1,5 @@
+import { useAccessStore } from '@vben/stores';
+
 import { baseRequestClient, requestClient } from '#/api/request';
 
 export namespace AuthApi {
@@ -7,12 +9,13 @@ export namespace AuthApi {
     username?: string;
   }
 
-  /** 登录接口返回值（后端当前 refreshToken 与 accessToken 同值，刷新端点待接入） */
+  /** 登录接口返回值：accessToken 与 refreshToken 由后端分别签发 */
   export interface LoginResult {
     accessToken: string;
     refreshToken?: string;
   }
 
+  /** baseRequestClient 返回原始响应体（Result<String>），data 即新的 accessToken */
   export interface RefreshTokenResult {
     data: string;
     status: number;
@@ -27,21 +30,20 @@ export async function loginApi(data: AuthApi.LoginParams) {
 }
 
 /**
- * 刷新accessToken
+ * 刷新 accessToken：携带 refreshToken 调用白名单端点，不需要登录态
  */
 export async function refreshTokenApi() {
+  const accessStore = useAccessStore() as unknown as { refreshToken?: string };
   return baseRequestClient.post<AuthApi.RefreshTokenResult>('/auth/refresh', {
-    withCredentials: true,
+    refreshToken: accessStore.refreshToken,
   });
 }
 
 /**
- * 退出登录
+ * 退出登录：需要带当前令牌，后端递增 tokenVersion 使旧令牌失效
  */
 export async function logoutApi() {
-  return baseRequestClient.post('/auth/logout', {
-    withCredentials: true,
-  });
+  return requestClient.post('/auth/logout');
 }
 
 /**

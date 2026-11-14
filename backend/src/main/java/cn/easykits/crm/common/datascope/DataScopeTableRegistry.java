@@ -33,6 +33,17 @@ public class DataScopeTableRegistry {
         register(DataScopeTable.of("crm_opportunity")); // 商机表：owner_id + dept_id（预测聚合 SQL 同样会被注入别名 o 的条件）
         register(DataScopeTable.of("crm_follow_record")); // 跟进记录：owner_id + dept_id
         register(new DataScopeTable("crm_task", "owner_id", null)); // 待办任务：仅 owner_id（跟进记录生成的任务同理）
+
+        // 交易闭环：报价 / 合同 / 订单 / 销售目标
+        register(DataScopeTable.of("crm_quote"));
+        register(DataScopeTable.of("crm_contract"));
+        register(DataScopeTable.of("crm_order"));
+        register(DataScopeTable.of("crm_sales_target"));
+
+        // 客户服务：工单 / 满意度
+        register(DataScopeTable.of("crm_service_ticket"));
+        register(DataScopeTable.of("crm_satisfaction"));
+
         // 联系人可见性随客户（crm_contact 无 owner 列，不注册）
         // 阶段配置（crm_opportunity_stage）与提醒（crm_reminder）为全局配置/私有提醒，不注册
         // TODO（轮次 4 跟进记录表建立后）：

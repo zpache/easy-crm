@@ -57,6 +57,21 @@ public class AdminAuthorizationService {
     }
 
     /**
+     * 校验令牌版本：改密、重置密码、登出、停用后版本递增，全部旧 access/refresh 令牌立即失效。
+     */
+    public boolean isTokenVersionValid(Long userId, long tokenVersion) {
+        if (userId == null || tokenVersion < 0) {
+            return false;
+        }
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(1).equals(user.getStatus())) {
+            return false;
+        }
+        long current = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
+        return current == tokenVersion;
+    }
+
+    /**
      * 角色 authority + 权限码（菜单/按钮上的 auth_code，来自 sys_permission）。
      */
     public List<GrantedAuthority> loadAuthorities(LoginUser loginUser) {

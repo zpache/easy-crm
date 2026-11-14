@@ -45,4 +45,7 @@ public class SysUser extends BaseEntity {
     private Integer status;
 
     private LocalDateTime lastLoginAt;
+
+    /** 令牌版本：改密 / 重置密码 / 登出 / 停用时递增，旧 JWT 立即失效 */
+    private Long tokenVersion;
 }

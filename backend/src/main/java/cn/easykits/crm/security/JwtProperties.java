@@ -18,6 +18,9 @@ public class JwtProperties {
     /** 签发者 */
     private String issuer = "easy-crm-backend";
 
-    /** 管理端令牌有效期 */
+    /** 管理端 access token 有效期 */
     private Duration adminExpire = Duration.ofHours(12);
+
+    /** refresh token 有效期（仅用于 /auth/refresh 换新 access token） */
+    private Duration refreshExpire = Duration.ofDays(7);
 }

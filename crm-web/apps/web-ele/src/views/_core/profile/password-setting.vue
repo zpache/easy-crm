@@ -7,6 +7,8 @@ import { ProfilePasswordSetting, z } from '@vben/common-ui';
 
 import { ElMessage } from 'element-plus';
 
+import { changePasswordApi } from '#/api/core/user';
+
 const formSchema = computed((): VbenFormSchema[] => {
   return [
     {
@@ -50,8 +52,13 @@ const formSchema = computed((): VbenFormSchema[] => {
   ];
 });
 
-function handleSubmit() {
-  ElMessage.success('密码修改成功');
+async function handleSubmit(values: Record<string, unknown>) {
+  await changePasswordApi({
+    confirmPassword: String(values.confirmPassword ?? ''),
+    newPassword: String(values.newPassword ?? ''),
+    oldPassword: String(values.oldPassword ?? ''),
+  });
+  ElMessage.success('密码修改成功，当前会话已失效，请重新登录');
 }
 </script>
 <template>

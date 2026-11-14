@@ -37,7 +37,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = resolveToken(request);
             if (StringUtils.hasText(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
-                tokenProvider.parseToken(token)
+                String rawToken = token;
+                tokenProvider.parseToken(rawToken)
+                        // tokenVersion 不匹配（已改密 / 登出 / 停用）时视为未认证
+                        .filter(u -> authorizationService.isTokenVersionValid(
+                                u.userId(), tokenProvider.parseTokenVersion(rawToken)))
                         .flatMap(authorizationService::resolveActiveUser)
                         .ifPresent(loginUser -> {
                     UsernamePasswordAuthenticationToken authentication =

@@ -44,16 +44,23 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
+  # 当前自定义 SQL 全部走 Mapper 注解；保留目录配置以便后续引入 XML
   mapper-locations: classpath*:/mapper/**/*.xml
 
 easy-crm:
   jwt:
-    # 生产环境通过环境变量 JWT_SECRET 注入，长度至少 32 字节
-    secret: ${JWT_SECRET:easy-crm-backend-dev-only-secret-key-0123456789abcdef}
+    # 安全加固：不再提供内置默认密钥，必须通过环境变量 JWT_SECRET 注入（>=32 字节），否则启动失败
+    secret: ${JWT_SECRET}
     issuer: easy-crm-backend
     admin-expire: 12h
+    refresh-expire: 7d
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+    # allowCredentials=true，必须是明确的来源白名单，禁止 *
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  security:
+    # 登录防爆破：连续失败 N 次锁定 M 分钟（单实例内存计数）
+    max-failed-attempts: 5
+    lock-minutes: 15
   lead:
     # 线索公海自动回收：跟进中且无跟进超过 N 天的线索回退公海（定时任务骨架，随轮次完善）
     recycle-days: 15
@@ -67,6 +74,9 @@ easy-crm:
   opportunity:
     # 商机停滞检测定时任务 cron 配置位置（默认每天 03:00）
     stale-cron: "0 0 3 * * ?"
+  support:
+    # 客户服务 SLA 超时扫描
+    sla-cron: "0 0 4 * * ?"
 
 # 日志级别
 logging:
@@ -74,7 +84,7 @@ logging:
     root: INFO
     # 业务代码：DEBUG 时配合 log-impl 输出 SQL 明细，排查数据权限注入效果时调到这里
     cn.easykits.crm: INFO
-    cn.easykits.crm.**.mapper: DEBUG
+    cn.easykits.crm.mapper: DEBUG
     org.springframework.web: INFO
     org.springframework.jdbc: WARN
     com.baomidou.mybatisplus: WARN

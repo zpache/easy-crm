@@ -136,6 +136,7 @@ public class UserService extends ServiceImpl<SysUserMapper, SysUser> {
         user.setRole(resolvePrimaryRoleCode(form.roleIds()));
         if (StringUtils.hasText(form.password())) {
             user.setPassword(passwordEncoder.encode(form.password()));
+            user.setTokenVersion((user.getTokenVersion() == null ? 0L : user.getTokenVersion()) + 1);
         }
         if (!updateById(user)) {
             throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
@@ -183,6 +184,8 @@ public class UserService extends ServiceImpl<SysUserMapper, SysUser> {
             throw new BizException(ResultCode.DATA_NOT_FOUND, "用户不存在");
         }
         user.setPassword(passwordEncoder.encode(rawPassword));
+        // 递增令牌版本，让该用户此前签发的 access / refresh 令牌立即失效
+        user.setTokenVersion((user.getTokenVersion() == null ? 0L : user.getTokenVersion()) + 1);
         if (!updateById(user)) {
             throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
         }
