@@ -1,204 +1,230 @@
 <script lang="ts" setup>
 import type { AnalysisOverviewItem } from '@vben/common-ui';
 import type { EchartsUIType } from '@vben/plugins/echarts';
+import type { DashboardApi } from '#/api/dashboard';
 
 import { onMounted, ref } from 'vue';
 
 import { AnalysisOverview } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
-import {
-  SvgBellIcon,
-  SvgCakeIcon,
-  SvgCardIcon,
-  SvgDownloadIcon,
-} from '@vben/icons';
+import { SvgBellIcon, SvgCakeIcon, SvgCardIcon, SvgDownloadIcon } from '@vben/icons';
 
-import {
-  ElCard,
-  ElRadioButton,
-  ElRadioGroup,
-} from 'element-plus';
+import { ElAlert, ElCard, ElRadioButton, ElRadioGroup } from 'element-plus';
 
-import {
-  getDashboardOverviewApi,
-  getMemberGrowth,
-  getOrderTrend,
-  getTopGoods,
-} from '#/api/dashboard';
+import { getDashboardOverview } from '#/api/dashboard';
 
-const overviewItems = ref<AnalysisOverviewItem[]>([]);
+const overview = ref<null | DashboardApi.Overview>(null);
 
 /** 近 N 天趋势，7/30/90 可切换 */
 const trendDays = ref(30);
 
-const trendChartRef = ref<EchartsUIType>();
-const { renderEcharts: renderTrend } = useEcharts(trendChartRef);
+const funnelChartRef = ref<EchartsUIType>();
+const { renderEcharts: renderFunnel } = useEcharts(funnelChartRef);
 
-const topGoodsChartRef = ref<EchartsUIType>();
-const { renderEcharts: renderTopGoods } = useEcharts(topGoodsChartRef);
+const stageChartRef = ref<EchartsUIType>();
+const { renderEcharts: renderStage } = useEcharts(stageChartRef);
 
-const memberChartRef = ref<EchartsUIType>();
-const { renderEcharts: renderMember } = useEcharts(memberChartRef);
+const followChartRef = ref<EchartsUIType>();
+const { renderEcharts: renderFollow } = useEcharts(followChartRef);
 
-async function loadTrend() {
-  const data = await getOrderTrend(trendDays.value);
-  await renderTrend({
-    grid: { bottom: 30, left: 60, right: 60, top: 40 },
-    legend: { data: ['订单数', '销售额'], top: 0 },
+const newTrendChartRef = ref<EchartsUIType>();
+const { renderEcharts: renderNewTrend } = useEcharts(newTrendChartRef);
+
+const rankChartRef = ref<EchartsUIType>();
+const { renderEcharts: renderRank } = useEcharts(rankChartRef);
+
+/** 指标卡 */
+const overviewItems = ref<AnalysisOverviewItem[]>([]);
+
+/** 停滞提醒文案 */
+const staleText = ref('');
+
+function formatMoney(value: number | undefined) {
+  return value == null ? '0' : Number(value).toLocaleString('zh-CN');
+}
+
+async function loadOverviewCards() {
+  const data = overview.value ?? (await getDashboardOverview(trendDays.value));
+  overview.value = data;
+  overviewItems.value = [
+    {
+      icon: SvgCardIcon,
+      title: '线索总数',
+      totalTitle: '近 7 天新增',
+      totalValue: data.cards.leadsNew7d,
+      value: data.cards.leadsTotal,
+    },
+    {
+      icon: SvgCakeIcon,
+      title: '客户总数',
+      totalTitle: '近 7 天新增',
+      totalValue: data.cards.customersNew7d,
+      value: data.cards.customersTotal,
+    },
+    {
+      icon: SvgDownloadIcon,
+      title: '进行中商机',
+      totalTitle: '预计金额合计',
+      totalValue: data.cards.oppOpenCnt,
+      value: data.cards.oppOpenAmount,
+    },
+    {
+      icon: SvgBellIcon,
+      title: '我的待办',
+      totalTitle: '已过期',
+      totalValue: data.cards.myTasksOverdue,
+      value: data.cards.myTasksPending,
+    },
+  ];
+}
+
+async function loadCharts() {
+  const data = overview.value ?? (await getDashboardOverview(trendDays.value));
+  overview.value = data;
+
+  // 停滞提醒
+  const stale = data.staleReminders ?? {};
+  const yellow = stale['1'] ?? 0;
+  const orange = stale['2'] ?? 0;
+  const red = stale['3'] ?? 0;
+  staleText.value =
+    yellow + orange + red === 0
+      ? '暂无停滞商机'
+      : `停滞商机提醒：红色 ${red} 个、橙色 ${orange} 个、黄色 ${yellow} 个（7/14/30 天无活动）`;
+
+  // 销售转化漏斗
+  await renderFunnel({
     series: [
       {
-        data: data.map((item) => item.orders),
-        name: '订单数',
+        data: data.funnel.map((item) => ({ name: item.stage, value: item.value })),
+        label: { show: true, position: 'inside' },
+        type: 'funnel',
+      },
+    ],
+    tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+  });
+
+  // 商机阶段分布（数量 + 加权预测）
+  await renderStage({
+    grid: { bottom: 30, left: 70, right: 70, top: 40 },
+    legend: { data: ['商机数', '加权预测金额'], top: 0 },
+    series: [
+      {
+        data: data.stageDistribution.map((item) => item.count),
+        name: '商机数',
         type: 'bar',
         yAxisIndex: 0,
       },
       {
-        data: data.map((item) => Number(item.salesAmount)),
-        name: '销售额',
+        data: data.stageDistribution.map((item) => Number(item.forecastAmount)),
+        name: '加权预测金额',
         smooth: true,
         type: 'line',
         yAxisIndex: 1,
       },
     ],
     tooltip: { trigger: 'axis' },
-    xAxis: { data: data.map((item) => item.date), type: 'category' },
+    xAxis: {
+      data: data.stageDistribution.map((item) => item.stageName),
+      type: 'category',
+    },
     yAxis: [
-      { name: '订单数', type: 'value' },
-      { name: '销售额(元)', type: 'value' },
+      { name: '商机数', type: 'value' },
+      { name: '金额(元)', type: 'value' },
     ],
   });
-}
 
-async function loadTopGoods() {
-  const data = await getTopGoods(trendDays.value, 10);
-  // 倒序让第一名显示在最上方
-  const sorted = [...data].reverse();
-  await renderTopGoods({
-    grid: { bottom: 10, left: 8, right: 30, top: 10, containLabel: true },
+  // 跟进活动趋势
+  await renderFollow({
+    areaStyle: { opacity: 0.15 },
+    grid: { bottom: 30, left: 60, right: 30, top: 40 },
     series: [
       {
-        data: sorted.map((item) => item.quantity),
-        name: '销量',
+        data: data.followTrend.map((item) => item.count),
+        name: '跟进次数',
+        smooth: true,
+        type: 'line',
+      },
+    ],
+    tooltip: { trigger: 'axis' },
+    xAxis: { data: data.followTrend.map((item) => item.date), type: 'category' },
+    yAxis: { type: 'value' },
+  });
+
+  // 新增线索 / 客户趋势
+  await renderNewTrend({
+    grid: { bottom: 30, left: 60, right: 30, top: 40 },
+    legend: { data: ['新增线索', '新增客户'], top: 0 },
+    series: [
+      {
+        data: data.newTrend.map((item) => item.leads),
+        name: '新增线索',
+        type: 'bar',
+      },
+      {
+        data: data.newTrend.map((item) => item.customers),
+        name: '新增客户',
+        type: 'bar',
+      },
+    ],
+    tooltip: { trigger: 'axis' },
+    xAxis: { data: data.newTrend.map((item) => item.date), type: 'category' },
+    yAxis: { type: 'value', minInterval: 1 },
+  });
+
+  // 负责人商机金额 TOP5
+  const rank = [...(data.ownerRanking ?? [])].reverse();
+  await renderRank({
+    grid: { bottom: 10, left: 8, right: 40, top: 10, containLabel: true },
+    series: [
+      {
+        data: rank.map((item) => Number(item.amount)),
+        name: '进行中商机金额',
         type: 'bar',
       },
     ],
     tooltip: {
       formatter: (params: any) => {
-        const item = sorted[params?.[0]?.dataIndex];
+        const item = rank[params?.[0]?.dataIndex];
         return item
-          ? `${item.goodsName}<br/>销量 ${item.quantity} · 销售额 ¥${Number(item.salesAmount).toFixed(2)}`
+          ? `${item.ownerName}<br/>进行中商机 ${item.count} 个 · 金额 ¥${formatMoney(item.amount)}`
           : '';
       },
       trigger: 'axis',
     },
     xAxis: { type: 'value' },
     yAxis: {
-      data: sorted.map((item) =>
-        item.goodsName.length > 12
-          ? `${item.goodsName.slice(0, 12)}…`
-          : item.goodsName,
-      ),
+      data: rank.map((item) => item.ownerName),
       type: 'category',
     },
   });
 }
 
-async function loadMemberGrowth() {
-  const data = await getMemberGrowth(trendDays.value);
-  let total = 0;
-  const cumulative = data.map((item) => {
-    total += item.newMembers;
-    return total;
-  });
-  await renderMember({
-    grid: { bottom: 30, left: 60, right: 30, top: 40 },
-    legend: { data: ['新增会员', '累计会员'], top: 0 },
-    series: [
-      {
-        areaStyle: { opacity: 0.15 },
-        data: data.map((item) => item.newMembers),
-        name: '新增会员',
-        smooth: true,
-        type: 'line',
-      },
-      {
-        data: cumulative,
-        name: '累计会员',
-        smooth: true,
-        type: 'line',
-      },
-    ],
-    tooltip: { trigger: 'axis' },
-    xAxis: { data: data.map((item) => item.date), type: 'category' },
-    yAxis: { type: 'value' },
-  });
-}
-
-/** 环比文案：正数带 +，0 显示「持平」 */
-function chainText(rate?: number) {
-  if (rate === undefined || rate === null) return '--';
-  if (rate > 0) return `+${rate}%`;
-  if (rate < 0) return `${rate}%`;
-  return '持平';
-}
-
-/** 环比颜色：涨红跌绿（国内习惯） */
-function chainClass(rate?: number) {
-  if (rate === undefined || rate === null || rate === 0) return '';
-  return rate > 0 ? 'text-red-500' : 'text-green-500';
-}
-
-async function loadOverview() {
-  const data = await getDashboardOverviewApi();
-  overviewItems.value = [
-    {
-      icon: SvgCardIcon,
-      title: '今日订单',
-      totalTitle: '较昨日',
-      totalText: chainText(data.ordersChainRate),
-      totalTextClass: chainClass(data.ordersChainRate),
-      value: data.todayOrders,
-    },
-    {
-      decimals: 2,
-      icon: SvgCakeIcon,
-      title: '今日销售额',
-      totalTitle: '较昨日',
-      totalText: chainText(data.salesChainRate),
-      totalTextClass: chainClass(data.salesChainRate),
-      value: data.todaySales,
-    },
-    {
-      icon: SvgDownloadIcon,
-      title: '待发货订单',
-      totalTitle: '已完成订单',
-      totalValue: data.finishedOrders,
-      value: data.pendingDelivery,
-    },
-    {
-      icon: SvgBellIcon,
-      title: '库存预警',
-      totalTitle: '在售商品',
-      totalValue: data.onSaleGoods,
-      value: data.stockWarning,
-    },
-  ];
-}
-
 async function onDaysChange() {
-  await Promise.all([loadTrend(), loadTopGoods(), loadMemberGrowth()]);
+  overview.value = null;
+  await loadOverviewCards();
+  await loadCharts();
 }
 
-onMounted(() => {
-  loadOverview();
-  onDaysChange();
+onMounted(async () => {
+  await loadOverviewCards();
+  await loadCharts();
 });
 </script>
 
 <template>
   <div class="p-4">
-    <!-- 紧凑模式：压缩卡片内边距，让「四个指标卡 + 订单趋势」在同一屏内完整呈现 -->
     <AnalysisOverview class="overview-compact" :items="overviewItems" />
+
+    <ElAlert
+      v-if="staleText"
+      :closable="false"
+      class="mt-4"
+      show-icon
+      :title="staleText"
+      type="warning"
+    />
+
     <div class="mb-3 mt-4 flex items-center gap-2">
       <span class="text-sm text-gray-500">统计范围</span>
       <ElRadioGroup v-model="trendDays" size="small" @change="onDaysChange">
@@ -207,54 +233,72 @@ onMounted(() => {
         <ElRadioButton :value="90">近 90 天</ElRadioButton>
       </ElRadioGroup>
     </div>
-    <ElCard shadow="never" class="mb-4">
+
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <ElCard shadow="never">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span>销售转化漏斗</span>
+            <span class="text-xs text-gray-400">线索 → 商机各阶段数量</span>
+          </div>
+        </template>
+        <EchartsUI ref="funnelChartRef" height="320px" />
+      </ElCard>
+      <ElCard shadow="never">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span>商机阶段分布</span>
+            <span class="text-xs text-gray-400">进行中商机 · 加权预测 = 赢单率 × 金额</span>
+          </div>
+        </template>
+        <EchartsUI ref="stageChartRef" height="320px" />
+      </ElCard>
+      <ElCard shadow="never">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span>跟进活动趋势</span>
+            <span class="text-xs text-gray-400">每日跟进记录次数</span>
+          </div>
+        </template>
+        <EchartsUI ref="followChartRef" height="300px" />
+      </ElCard>
+      <ElCard shadow="never">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span>新增线索 / 客户趋势</span>
+            <span class="text-xs text-gray-400">按创建时间，每日新增</span>
+          </div>
+        </template>
+        <EchartsUI ref="newTrendChartRef" height="300px" />
+      </ElCard>
+    </div>
+
+    <ElCard class="mt-4" shadow="never">
       <template #header>
         <div class="flex items-center justify-between">
-          <span>订单趋势</span>
-          <span class="text-xs text-gray-400">按下单时间，已排除取消订单</span>
+          <span>负责人商机金额 TOP5</span>
+          <span class="text-xs text-gray-400">进行中商机，按预计金额降序</span>
         </div>
       </template>
-      <EchartsUI ref="trendChartRef" height="300px" />
-    </ElCard>
-    <ElCard shadow="never" class="mb-4">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span>商品销量 TOP10</span>
-          <span class="text-xs text-gray-400">按销量降序</span>
-        </div>
-      </template>
-      <EchartsUI ref="topGoodsChartRef" height="360px" />
-    </ElCard>
-    <ElCard shadow="never">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span>会员增长</span>
-          <span class="text-xs text-gray-400">每日新注册会员与累计曲线</span>
-        </div>
-      </template>
-      <EchartsUI ref="memberChartRef" height="320px" />
+      <EchartsUI ref="rankChartRef" height="260px" />
     </ElCard>
   </div>
 </template>
 
 <style scoped lang="scss">
-/* 指标卡紧凑化：CardHeader 原 p-5、CardContent/CardFooter 原 p-6，纵向留白偏大。
-   这里只在本页压缩，公共组件 AnalysisOverview 保持原样，其他页面不受影响。 */
+/* 指标卡紧凑化：仅本页压缩，公共组件 AnalysisOverview 保持原样 */
 .overview-compact {
   gap: 12px;
 
-  // 卡片头部：上下留白收窄，标题与数值之间不再多一层空隙
   :deep(.p-5) {
     gap: 0;
     padding: 12px 16px 0;
   }
 
-  // 数值行与底部说明行：左右 16px，纵向只留必要间距
   :deep(.p-6) {
     padding: 6px 16px 0;
   }
 
-  // 卡片最后一个面板（底部说明行）补回下内边距，避免文字贴边
   :deep(.p-6:last-child) {
     padding-bottom: 12px;
   }
