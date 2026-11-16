@@ -55,8 +55,9 @@ easy-crm:
     admin-expire: 12h
     refresh-expire: 7d
   cors:
-    # allowCredentials=true，必须是明确的来源白名单，禁止 *
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    # 2026-11-16 按用户决定默认放行所有来源（'*' 经 allowedOriginPatterns 回显请求来源实现）；
+    # 生产环境建议通过 CORS_ALLOWED_ORIGINS 配置明确白名单（逗号分隔）
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
   security:
     # 登录防爆破：连续失败 N 次锁定 M 分钟（单实例内存计数）
     max-failed-attempts: 5

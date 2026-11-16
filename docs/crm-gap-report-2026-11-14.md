@@ -372,3 +372,5 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
 | 迁移幂等 | 两次执行数据一致（9 字典 / 44 项，重复行已清理） |
 | 运行时冒烟 | `GET /dict-data/lead_source` 返回 6 项；管理分页 9 字典含项数；未登录 401；重复编码/重复值 4004；内置字典删除被拒；自定义字典增删改与缓存一致性通过；`sourceName` 走字典解析正常；级联逻辑删除生效 |
 | 待办 | 前端各下拉（客户行业/规模/区域/级别、跟进类型等）尚未切到 `getDictData`（现为硬编码选项，与字典值一致）；Excel 导入的标签匹配已字典化，建议后续用真实文件回归一次 |
+
+- 2026-11-16 变更说明（P0-3 CORS 部分回退）：应所有者明确决定，`easy-crm.cors.allowed-origins` 默认值改回 `*`，`SecurityConfig` 对 `*` 不再拒绝启动，改用 `allowedOriginPatterns("*")` 回显请求来源实现（兼容 allowCredentials=true）。生产环境仍建议配置 `CORS_ALLOWED_ORIGINS` 明确白名单。本机已同步将固定 JWT 密钥与 MySQL 密码写入 gitignore 的 `application-local.yml`。

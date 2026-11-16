@@ -46,7 +46,7 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
 
-    @Value("${easy-crm.cors.allowed-origins:http://localhost:5173}")
+    @Value("${easy-crm.cors.allowed-origins:*}")
     private List<String> allowedOrigins;
 
     @Bean
@@ -84,15 +84,14 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        // allowCredentials=true 时禁止通配来源，避免任意站点携带凭证跨域调用管理端接口
-        if (allowedOrigins == null || allowedOrigins.isEmpty()
+        // 2026-11-16 按用户决定放开来源限制：'*' 使用 allowedOriginPatterns 回显请求来源
+        // （allowCredentials=true 时浏览器禁止字面量 '*'，回显模式等效放行所有来源且不报错）。
+        // 生产环境建议通过 CORS_ALLOWED_ORIGINS 配置明确白名单。
+        boolean allowAll = allowedOrigins == null || allowedOrigins.isEmpty()
                 || allowedOrigins.stream().anyMatch(origin ->
-                !StringUtils.hasText(origin) || "*".equals(origin.trim()))) {
-            throw new IllegalStateException(
-                    "CORS 在 allowCredentials=true 时不允许通配来源，请通过 CORS_ALLOWED_ORIGINS 配置明确白名单");
-        }
+                !StringUtils.hasText(origin) || "*".equals(origin.trim()));
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(allowedOrigins);
+        configuration.setAllowedOriginPatterns(allowAll ? List.of("*") : allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
