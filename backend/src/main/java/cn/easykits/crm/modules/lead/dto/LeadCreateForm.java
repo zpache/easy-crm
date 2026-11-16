@@ -29,6 +29,9 @@ public class LeadCreateForm {
     /** 来源字典值，见 {@link LeadSource#isValid(Integer)} */
     private Integer source;
 
+    /** 来源营销活动 ID（可空） */
+    private Long campaignId;
+
     @Size(max = 500, message = "备注不能超过 500 个字符")
     private String remark;
 }

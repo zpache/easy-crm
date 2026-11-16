@@ -28,6 +28,12 @@ public class LeadVO {
     /** 来源中文名 */
     private String sourceName;
 
+    /** 来源营销活动 ID */
+    private Long campaignId;
+
+    /** 来源营销活动名称 */
+    private String campaignName;
+
     /** 状态：0 新建 1 跟进中 2 已验证 3 不合格 */
     private Integer status;
 

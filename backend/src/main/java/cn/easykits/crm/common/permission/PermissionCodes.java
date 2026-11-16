@@ -68,7 +68,15 @@ public final class PermissionCodes {
             "crm:export:lead", "crm:export:customer", "crm:export:contact",
             "crm:export:opportunity", "crm:export:order", "crm:export:template",
             "crm:sales-target:list", "crm:sales-target:create", "crm:sales-target:update",
-            "crm:sales-target:delete", "crm:report:achievement",
+            "crm:sales-target:delete",
+            "crm:report:achievement", "crm:report:funnel", "crm:report:ranking",
+            "crm:report:revenue", "crm:report:customer",
+
+            // 营销域
+            "crm:campaign:list", "crm:campaign:create", "crm:campaign:update", "crm:campaign:delete",
+
+            // 审批中心（外部审批镜像，只读入口）
+            "crm:approval:list",
 
             // 客户服务：工单 / SLA / 知识库 / 满意度
             "crm:ticket:list", "crm:ticket:create", "crm:ticket:update",

@@ -44,6 +44,9 @@ public class DataScopeTableRegistry {
         register(DataScopeTable.of("crm_service_ticket"));
         register(DataScopeTable.of("crm_satisfaction"));
 
+        // 营销域：活动按负责人 / 部门可见
+        register(DataScopeTable.of("crm_campaign"));
+
         // 联系人可见性随客户（crm_contact 无 owner 列，不注册）
         // 阶段配置（crm_opportunity_stage）与提醒（crm_reminder）为全局配置/私有提醒，不注册
         // TODO（轮次 4 跟进记录表建立后）：

@@ -27,4 +27,7 @@ public class LeadQuery {
 
     /** 来源字典值 */
     private Integer source;
+
+    /** 来源营销活动 ID（活动详情下钻线索使用） */
+    private Long campaignId;
 }

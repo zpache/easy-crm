@@ -28,6 +28,9 @@ public class LeadUpdateForm {
     /** 来源字典值，见 {@link LeadSource#isValid(Integer)} */
     private Integer source;
 
+    /** 来源营销活动 ID（可空；传值即覆盖） */
+    private Long campaignId;
+
     /** 可选状态流转：0→1、0→3、1→3；1→2 / 0→2 必须走转化接口 */
     private Integer status;
 

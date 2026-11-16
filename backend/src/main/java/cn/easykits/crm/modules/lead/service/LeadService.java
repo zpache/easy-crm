@@ -9,10 +9,12 @@ import cn.easykits.crm.common.api.ResultCode;
 import cn.easykits.crm.common.context.LoginUser;
 import cn.easykits.crm.common.context.LoginUserContext;
 import cn.easykits.crm.common.exception.BizException;
+import cn.easykits.crm.entity.Campaign;
 import cn.easykits.crm.entity.FollowRecord;
 import cn.easykits.crm.entity.Lead;
 import cn.easykits.crm.entity.SysDept;
 import cn.easykits.crm.entity.SysUser;
+import cn.easykits.crm.mapper.CampaignMapper;
 import cn.easykits.crm.mapper.FollowRecordMapper;
 import cn.easykits.crm.mapper.LeadMapper;
 import cn.easykits.crm.mapper.SysDeptMapper;
@@ -72,6 +74,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
     private final SysUserMapper sysUserMapper;
     private final SysDeptMapper sysDeptMapper;
     private final FollowRecordMapper followRecordMapper;
+    private final CampaignMapper campaignMapper;
     private final DictService dictService;
 
     // ============================================================ 创建 / 更新
@@ -85,7 +88,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
         validateContact(form.getPhone(), form.getEmail());
         Lead lead = new Lead();
         applyForm(lead, form.getName(), form.getContactName(), form.getPhone(),
-                form.getEmail(), form.getSource(), form.getRemark());
+                form.getEmail(), form.getSource(), form.getCampaignId(), form.getRemark());
         LoginUser user = LoginUserContext.require();
         lead.setStatus(LeadStatus.NEW.code());
         lead.setOwnerId(user.userId());
@@ -126,7 +129,8 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
             }
         }
         applyForm(lead, name, form.getContactName(), form.getPhone(), form.getEmail(),
-                form.getSource(), form.getRemark());
+                form.getSource(), form.getCampaignId() == null ? lead.getCampaignId() : form.getCampaignId(),
+                form.getRemark());
         if (!updateById(lead)) {
             throw new BizException(ResultCode.DATA_CONFLICT, "数据已被其他人修改，请刷新后重试");
         }
@@ -152,6 +156,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
                         .eq(query.getOwnerId() != null && query.getOwnerId() != -1,
                                 Lead::getOwnerId, query.getOwnerId())
                         .eq(query.getSource() != null, Lead::getSource, query.getSource())
+                        .eq(query.getCampaignId() != null, Lead::getCampaignId, query.getCampaignId())
                         .orderByDesc(Lead::getId));
         List<LeadVO> vos = page.getRecords().stream().map(lead -> toVO(lead, false)).toList();
         fillUserAndDeptNames(vos, page.getRecords());
@@ -486,7 +491,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
     }
 
     private void applyForm(Lead lead, String name, String contactName,
-                           String phone, String email, Integer source, String remark) {
+                           String phone, String email, Integer source, Long campaignId, String remark) {
         lead.setName(name);
         lead.setContactName(contactName);
         lead.setPhone(StringUtils.hasText(phone) ? phone : null);
@@ -495,6 +500,13 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
             throw new BizException("来源字典值不合法: " + source);
         }
         lead.setSource(source);
+        if (campaignId != null) {
+            Campaign campaign = campaignMapper.selectById(campaignId);
+            if (campaign == null) {
+                throw new BizException(ResultCode.DATA_NOT_FOUND, "来源营销活动不存在: " + campaignId);
+            }
+        }
+        lead.setCampaignId(campaignId);
         lead.setRemark(remark);
     }
 
@@ -529,6 +541,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
         vo.setEmail(lead.getEmail());
         vo.setSource(lead.getSource());
         vo.setSourceName(resolveSourceName(lead.getSource()));
+        vo.setCampaignId(lead.getCampaignId());
         vo.setStatus(lead.getStatus());
         vo.setStatusName(LeadStatus.of(lead.getStatus()).label());
         vo.setOwnerId(lead.getOwnerId());
@@ -567,9 +580,15 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
         Map<Long, String> deptNameMap = deptIds.isEmpty() ? Map.of()
                 : sysDeptMapper.selectBatchIds(deptIds).stream()
                 .collect(Collectors.toMap(SysDept::getId, SysDept::getName));
+        List<Long> campaignIds = leads.stream().map(Lead::getCampaignId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, String> campaignNameMap = campaignIds.isEmpty() ? Map.of()
+                : campaignMapper.selectBatchIds(campaignIds).stream()
+                .collect(Collectors.toMap(Campaign::getId, Campaign::getName));
         for (LeadVO vo : vos) {
             vo.setOwnerName(vo.getOwnerId() == null ? null : userNameMap.get(vo.getOwnerId()));
             vo.setDeptName(vo.getDeptId() == null ? null : deptNameMap.get(vo.getDeptId()));
+            vo.setCampaignName(vo.getCampaignId() == null ? null : campaignNameMap.get(vo.getCampaignId()));
         }
     }
 }

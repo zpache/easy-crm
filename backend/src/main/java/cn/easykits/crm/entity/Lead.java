@@ -35,6 +35,9 @@ public class Lead extends BaseEntity {
     /** 来源字典值，见 LeadSource 常量类（后续接字典表） */
     private Integer source;
 
+    /** 来源营销活动 ID（可空：自然流量线索不挂活动；活动 ROI 归因口径） */
+    private Long campaignId;
+
     /** 状态：0 新建 1 跟进中 2 已验证 3 不合格，见 LeadStatus */
     private Integer status;
 
