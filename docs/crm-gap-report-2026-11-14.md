@@ -374,3 +374,69 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
 | 待办 | 前端各下拉（客户行业/规模/区域/级别、跟进类型等）尚未切到 `getDictData`（现为硬编码选项，与字典值一致）；Excel 导入的标签匹配已字典化，建议后续用真实文件回归一次 |
 
 - 2026-11-16 变更说明（P0-3 CORS 部分回退）：应所有者明确决定，`easy-crm.cors.allowed-origins` 默认值改回 `*`，`SecurityConfig` 对 `*` 不再拒绝启动，改用 `allowedOriginPatterns("*")` 回显请求来源实现（兼容 allowCredentials=true）。生产环境仍建议配置 `CORS_ALLOWED_ORIGINS` 明确白名单。本机已同步将固定 JWT 密钥与 MySQL 密码写入 gitignore 的 `application-local.yml`。
+
+## 批次 5 实现记录（2026-11-16：前端补页 / 导出挂载 / 报表扩充 / 营销域 / 审批入口）
+
+### 范围与决策
+按所有者决定：**审批流（原第 5 项）不开发流程引擎**——对接外部审批系统，CRM 只提供「待办 / 已办 / 我发起的」三个列表入口与跳转；**第 6 项（附件 / 电子签 / 开放 API）本期不做**。其余按既定顺序实现：
+
+1. 产品域前端补齐：价目表、报价单（含明细与总额强校验）
+2. 交易域前端补齐：开票管理、退款管理（含状态流转）
+3. 导出按钮挂载到 5 个列表页
+4. 报表扩充：销售漏斗 / 销售排行 / 回款分析 / 客户分布
+5. 营销域：营销活动 + 线索活动归因（活动 ROI）
+6. 审批中心：外部审批镜像只读入口
+
+### 数据库（迁移 `V20261117_01__marketing_and_approval.sql`）
+| 变更 | 说明 |
+| --- | --- |
+| `crm_campaign` | 营销活动：编码唯一、类型/状态、预算、起止日期、目标线索数、owner_id/dept_id |
+| `crm_lead.campaign_id` | 条件 ALTER 补列 + `idx_campaign` 索引；自然流量线索可空 |
+| `crm_approval_instance` | 外部审批镜像（只读）：业务类型/单号、发起人、当前审批人、节点、状态、external_url、来源系统；含 3 条 admin 名下示例数据 |
+| `sys_permission` | 新增菜单：102 价目表、103 报价单、114 开票管理、115 退款管理、140 营销管理（catalog）、141 营销活动、150 审批中心 |
+| `init.sql` | 同步追加「批次 5」段落（建表 + 条件 ALTER + 菜单），新装库与存量库结构一致 |
+
+幂等：建表 `IF NOT EXISTS`、补列走 `information_schema + PREPARE` 条件 ALTER、种子 `ON DUPLICATE KEY UPDATE`、末尾登记 `sys_schema_migration`。**连跑两次验证无数据漂移**（3 条审批示例、7 条菜单均在位）。
+
+### 后端
+| 模块 | 内容 |
+| --- | --- |
+| 营销域 `modules/marketing` | `CampaignController`（`/campaigns`，`crm:campaign:list/create/update/delete`）；分页含效果指标；`/campaigns/options` 登录即可读供线索表单选择；活动编码自动生成 `MC-yyyyMMddHHmmss-xxxx` |
+| 活动效果口径 | 线索数 / 转化数（`converted_customer_id` 非空）、商机金额、赢单金额（阶段 `is_won=1` 的 `actual_amount`）、ROI=赢单/预算、目标达成率=线索数/目标线索数；分母为 0 返回 null（前端显示「-」） |
+| 审批中心 `modules/approval` | `ApprovalController`（`GET /approvals`、`/approvals/summary`、`/approvals/{id}`，权限 `crm:approval:list`）；`box=todo` 当前审批人=我且审批中，`done` 我审批过且已结束，`applied` 我发起的；**不提供通过/驳回**，动作在外部系统完成 |
+| 报表扩充 `modules/report` | 新增 `GET /reports/funnel`、`/ranking`、`/revenue`、`/customer-distribution`，权限码 `crm:report:funnel|ranking|revenue|customer`；全部为 GROUP BY 聚合，`crm_order` 作为 join 锚点让回款/开票/退款继承行级数据权限 |
+| 线索归因 | `Lead` / `LeadCreateForm` / `LeadUpdateForm` / `LeadQuery` / `LeadVO` 增加 `campaignId`（VO 另返 `campaignName`）；创建/更新校验活动存在；列表可按活动下钻 |
+| 数据权限 | `DataScopeTableRegistry` 登记 `crm_campaign`（owner_id + dept_id）；`crm_approval_instance` 有意不登记（「我的收件箱」语义，按登录用户显式过滤） |
+| 权限登记 | `PermissionCodes.ALL` 追加 `crm:campaign:*`（4）、`crm:approval:list`（1）、`crm:report:*` 扩展（4） |
+
+### 前端
+| 页面 | 内容 |
+| --- | --- |
+| `views/product/price/*` | 价目表：产品下拉（远程取产品列表）、价格/生效/失效日期、状态标签、增删改 |
+| `views/product/quote/*` | 报价单：客户下拉、明细表格编辑（单价/数量/折扣/小计）、「用明细汇总回填总金额」、保存前后端双重校验汇总一致、详情抽屉 |
+| `views/payment/invoice/*` | 开票管理：订单下拉自动带出客户、确认开票（先回填票号再推进状态）、作废、删除 |
+| `views/payment/refund/*` | 退款管理：单据状态流转（审核通过 / 标记已退款 / 驳回）、删除 |
+| `views/payment/shared/options.ts` | 开票与退款共用的客户/订单选项与状态字典 |
+| 导出挂载 | `composables/use-crm-export.ts`（统一 loading / 错误提示）+ 线索/客户/联系人/商机/订单 5 个列表页「导出 Excel」按钮，按当前筛选条件导出，权限 `crm:export:*` |
+| `views/report/index.vue` | 改为页签：销售达成 / 销售漏斗 / 销售排行 / 回款分析 / 客户分布；按权限码控制页签可见；查询只刷新当前页签 |
+| `views/marketing/campaign/*` | 活动列表（含线索数、转化率、赢单金额、ROI）+ 表单抽屉 |
+| `views/approval/index.vue` | 待办 / 已办 / 我发起的（带数量角标）、业务类型与状态筛选、详情抽屉、跳转外部审批 |
+| 其他 | `api/crm/{marketing,approval}.ts`、`api/crm/report.ts` 扩展、线索表单加「来源活动」与列表「来源活动」列、`constants/crm-batch3-permissions.ts` 追加 `CAMPAIGN/REPORT_EXT/APPROVAL` 权限常量 |
+
+### 检验
+| 项 | 结果 |
+| --- | --- |
+| 后端编译（JDK 25 / Corretto 25.0.5） | BUILD SUCCESS |
+| 前端生产构建 | `pnpm --filter @vben/web-ele build` 成功（新页面 `approval-*.js` 已产出） |
+| 迁移幂等 | 两次执行后菜单 7 条、审批示例 3 条、`crm_lead.campaign_id` 与索引均存在，无重复 |
+| 接口冒烟（admin 登录后） | `/campaigns` 200、`/campaigns/options` 200、`/approvals?box=todo` 200（2 待办）、`/approvals/summary` 200（todo 2 / done 1 / applied 1）、`/reports/funnel` 200（线索 9 → 转化 3）、`/ranking` 200（赢单 48 万）、`/revenue` 200（计划 6 万 / 实收 6 万 / 开票 6 万 / 退款 0.5 万 / 净流入 5.5 万）、`/customer-distribution` 200 |
+| 端到端样例数据 | 新建客户 → 订单 12 万 → 回款计划 6 万 → 回款 6 万 → 开票 6 万（已开票）→ 退款 0.5 万（已退款）→ 报价单 12 万 → 价目表；线索挂活动后活动统计 `leadCount=1 / targetRate=2.00%` |
+| 未覆盖 | 前端未做浏览器交互回归（仅生产构建 + 接口冒烟）；`vue-tsc` 基线既有 ~30 条错误（`Recordable` 等）与本次改动无关 |
+
+### 已知限制（不谎报完成）
+- **审批为只读镜像**：无同步任务，示例数据由 SQL 种子提供；接入外部系统后需实现「审批实例 → crm_approval_instance」同步（建议按 `source_system + 外部实例 ID` 建唯一键去重），当前表无该唯一键。
+- **活动效果依赖线索归因**：只有手工/导入时选了「来源活动」的线索才计入；历史线索未回填，ROI 在无赢单时为 0.00、无预算时为「-」。
+- **漏斗转化率可能 >100%**：分子分母为相邻环节数量比，存在「未转化线索直接手工建商机」时会超过 100%，已在页面上标注口径。
+- **开票/退款/报价无导出与打印**：导出仍只覆盖线索/客户/联系人/商机/订单五类。
+- **前端下拉仍有硬编码**：价目表产品、开票/退款订单为客户下拉取前 200 条，未做远程搜索分页；字典化下拉（P2-03 遗留项）仍未全量切换。
+- **附件/电子签/开放 API 未启动**（本期明确不做）。
