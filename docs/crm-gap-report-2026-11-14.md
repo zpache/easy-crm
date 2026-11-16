@@ -41,13 +41,13 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
 | 前端生产构建（vite build --mode production） | **VITE_EXIT=0**，产出 `dist.zip` |
 | 迁移脚本静态校验 | 3 个脚本均含 `CREATE TABLE IF NOT EXISTS`、`sys_schema_migration` 台账、`ON DUPLICATE KEY UPDATE` |
 | 前端 `vue-tsc` | 存在 **30+ 条基线既有错误**（`Recordable` 全局类型缺失、Vben form 依赖类型、未使用变量），经比对与本次改动无关；本次新增/修改文件未引入新 TS 错误 |
-| 数据库迁移实际执行 | **未执行**：本机 MySQL root 需要密码且仓库未配置 `MYSQL_PASSWORD` / `application-local.yml`，无法连接验证 |
-| 运行时接口回归 | **未执行**：同上，需启动后端 + 执行迁移脚本后进行越权矩阵、状态机、并发用例验证 |
+| 数据库迁移实际执行 | **已执行（2026-11-16）**：3 个迁移脚本按序跑通，`sys_schema_migration` 台账 3 条，库内 36 张表；`init.sql` 新增 22 行菜单种子已同步（`sys_permission` 共 36 个启用菜单） |
+| 运行时接口冒烟 | **已通过（2026-11-16）**：新代码实启后登录/鉴权/改密/12 个新域分页接口全部符合预期；admin 默认口令被 `AdminBootstrapRunner` 自动轮换（预期行为）；产品新建→落库→逻辑删除写链路验证通过；未登录访问返回 401、空改密表单返回 400。越权矩阵、状态机、并发用例仍待专项回归 |
 
 ### 上线前必做（运维 / QA）
 
 1. 配置环境变量 `JWT_SECRET`（≥32 字节，缺失将**启动失败**）、`CORS_ALLOWED_ORIGINS`（禁止 `*`）、`MYSQL_PASSWORD`；可选 `ADMIN_INITIAL_PASSWORD` 预设初始管理员口令，否则启动日志会打印一次随机口令。
-2. 按版本号顺序执行 3 个迁移脚本，并把 `init.sql` 新增的 22 行菜单种子同步到当前库（菜单实时读取，刷新前端即可见）；核对 `sys_schema_migration` 台账。
+2. ~~按版本号顺序执行 3 个迁移脚本并同步菜单种子~~（已于 2026-11-16 完成，台账 3 条、36 表、36 菜单）。**admin 原默认口令已被自动轮换**，随机密码只在首次启动日志显示一次，请立即登录改密或用 `ADMIN_INITIAL_PASSWORD` 重置。
 3. 给非 admin 角色授权新增菜单与按钮权限码（`sys_role_permission`）；admin 走代码兜底。
 4. 执行越权矩阵（4 种 dataScope × 新增 6 张表）、日志脱敏、旧 token 失效、登录锁定、状态机、公海边界与合并并发回归。
 
@@ -334,3 +334,11 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
 | 客户 / 商机 | `modules/customer/service/CustomerServiceImpl.java:180-267`、`modules/opportunity/service/OpportunityServiceImpl.java:236-309`、`modules/opportunity/event/OpportunityEventListener.java` |
 | 前端菜单与页面 | `crm-web/apps/web-ele/src/preferences.ts`、`router/access.ts`、`router/routes/core.ts`、`views/customer/modules/view360.vue`、`views/_core/profile/password-setting.vue` |
 | 项目约定 | `AGENTS.md`（Git 与菜单规范）、`README.md:54-66`（进度清单）、`docs/backend-audit-report-2026-11-14.md`（已修复项） |
+
+
+## 追加记录（2026-11-16 数据库执行与冒烟）
+
+- 环境变量 `MYSQL_HOST/PORT/DATABASE/USERNAME/PASSWORD` 已写入 `~/.zshrc`（密码不落仓库）。
+- 3 个迁移脚本 + 22 行菜单种子已对 `easy_crm` 库执行并验证（`sys_schema_migration` 台账：V20261115_01/02/03）。
+- 后端以新代码实启（profiles: dev,local），冒烟结论见上表「运行时接口冒烟」行。
+- 发现并处理：8080 曾被改动前的旧实例占用导致 404，已停掉并重启新实例。
