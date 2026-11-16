@@ -42,7 +42,7 @@ export const CONTRACT_PERMISSIONS = {
   update: 'crm:contract:update',
 } as const;
 
-/** 命名加 CRM_ 前缀，避免与商城订单的 ORDER_PERMISSIONS 重名 */
+/** 订单权限（CRM 交易域） */
 export const CRM_ORDER_PERMISSIONS = {
   create: 'crm:order:create',
   delete: 'crm:order:delete',

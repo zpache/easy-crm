@@ -254,7 +254,7 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
   - 动作：优先覆盖 P0 安全分支、状态机、查重、线索转化/客户合并事务、公海并发领取；补 MockMvc 接口测试与越权矩阵测试；接入 CI 跑单测 + 前端构建
   - 验收：核心 Service 分支覆盖率设门槛；CI 未通过不允许合并到 `main`
 
-- [ ] **P2-02｜前端 8 个电商遗留目录悬空**
+- [x] **P2-02｜前端 8 个电商遗留目录悬空**（2026-11-16 已清理：删除 views/{goods,order,marketing,member,decorate,settings}、api/{goods,order,marketing,member,decorate,settings,message,upload}.ts、api/dashboard/{analytics,overview,index}.ts 死代码、死组件 goods-image-field.vue 与 core.ts 两条装修静态路由；permissions.ts 删除 GOODS/ORDER/MEMBER/MARKETING/DECORATE/SETTING 六组电商权限常量，仅保留 CRM/SYSTEM 组。归档备份：/tmp/easy-crm-mall-legacy。构建验证通过）
   - 证据：`views/{goods,order,marketing,member,decorate,settings,message}/` 与 `api/{goods,order,marketing,member,decorate,settings,message,upload}.ts` 均无菜单、后端无对应 Controller；`router/routes/core.ts` 还挂着 `DecorateEditor` / `DecoratePreview` 两条静态路由；`api/dashboard/{analytics,overview,index}.ts` 为死代码且与根 `api/dashboard.ts` 重复
   - 风险：打包体积、误维护，且电商「订单」与未来 CRM 订单命名/路由冲突
   - 动作：移入 `legacy/` 归档或直接删除；清理 core 静态路由与重复 API；`constants/permissions.ts` 中删除电商权限码，仅保留 CRM / SYSTEM 组
@@ -342,3 +342,5 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
 - 3 个迁移脚本 + 22 行菜单种子已对 `easy_crm` 库执行并验证（`sys_schema_migration` 台账：V20261115_01/02/03）。
 - 后端以新代码实启（profiles: dev,local），冒烟结论见上表「运行时接口冒烟」行。
 - 发现并处理：8080 曾被改动前的旧实例占用导致 404，已停掉并重启新实例。
+
+- 2026-11-16：P2-02 电商遗留清理完成——`src/views` 现与菜单一一对应（15 个目录均为 CRM 业务页），前端生产构建通过（VITE_EXIT=0）。注：原遗留 `views/message/` 已在批次 2 中被新「消息中心」覆写，本次保留；`api/message.ts`（商城站内信）已删，新消息中心走 `api/crm/reminder.ts`。
