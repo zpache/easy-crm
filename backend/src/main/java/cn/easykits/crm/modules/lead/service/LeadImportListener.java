@@ -3,7 +3,6 @@ package cn.easykits.crm.modules.lead.service;
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.event.AnalysisEventListener;
 import com.alibaba.excel.exception.ExcelDataConvertException;
-import cn.easykits.crm.modules.lead.constant.LeadSource;
 import cn.easykits.crm.modules.lead.dto.LeadImportRow;
 import cn.easykits.crm.modules.lead.vo.LeadImportResultVO;
 import lombok.Getter;
@@ -20,12 +19,20 @@ import java.util.Set;
  * 线索导入解析监听器：表头校验 + 逐行解析收集，单行失败只记错误不中断。
  * <p>只做「文件内可判定」的校验（必填 / 长度 / 文件内重复）；
  * 手机号 / 邮箱与库内查重由 LeadService 在解析完成后统一执行。
+ * <p>来源标签校验通过构造器注入谓词（LeadService 传入「字典表优先、常量兜底」实现）。
  */
 @Slf4j
 public class LeadImportListener extends AnalysisEventListener<LeadImportRow> {
 
     /** 模板第 1 列表头 */
     public static final String REQUIRED_HEADER = "线索名称";
+
+    /** 来源标签校验谓词（由调用方注入，与解析阶段取值同口径） */
+    private final java.util.function.Predicate<String> sourceLabelValidator;
+
+    public LeadImportListener(java.util.function.Predicate<String> sourceLabelValidator) {
+        this.sourceLabelValidator = sourceLabelValidator;
+    }
 
     /** 表头不匹配标记（解析提前终止，由调用方转换为业务异常） */
     @Getter
@@ -73,7 +80,7 @@ public class LeadImportListener extends AnalysisEventListener<LeadImportRow> {
         if (StringUtils.hasText(row.getEmail()) && !seenEmails.add(row.getEmail())) {
             rowErrors.add("邮箱在文件内重复: " + row.getEmail());
         }
-        if (StringUtils.hasText(row.getSource()) && LeadSource.codeOfLabel(row.getSource()) == null) {
+        if (StringUtils.hasText(row.getSource()) && !sourceLabelValidator.test(row.getSource())) {
             rowErrors.add("来源不是有效字典值: " + row.getSource());
         }
         if (row.getContactName() != null && row.getContactName().length() > 64) {

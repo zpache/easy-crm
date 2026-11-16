@@ -397,6 +397,46 @@ CREATE TABLE IF NOT EXISTS crm_opportunity_stage_log (
     KEY idx_opportunity_id (opportunity_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='商机阶段变更日志';
 
+-- ---------------------------------------------------------------- 数据字典（P2-03：sys_dict + sys_dict_item）
+-- dict_type 业务唯一由 Service 层校验（避免 DB 唯一键与逻辑删除冲突）；
+-- 内置字典以 Java 常量类为 fallback（DictDefaults）
+CREATE TABLE IF NOT EXISTS sys_dict (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    dict_type   VARCHAR(64)     NOT NULL COMMENT '字典类型编码（业务唯一）',
+    name        VARCHAR(64)     NOT NULL COMMENT '字典名称',
+    remark      VARCHAR(255)    NULL,
+    built_in    TINYINT         NOT NULL DEFAULT 0 COMMENT '1 内置字典（不允许删除，允许停用）',
+    status      TINYINT         NOT NULL DEFAULT 1 COMMENT '1 启用，0 停用',
+    create_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT          NULL,
+    update_by   BIGINT          NULL,
+    version     INT             NOT NULL DEFAULT 0,
+    deleted     TINYINT         NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_dict_type (dict_type)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='数据字典类型';
+
+CREATE TABLE IF NOT EXISTS sys_dict_item (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    dict_id     BIGINT UNSIGNED NULL COMMENT '所属字典 ID（冗余列，归属以 dict_type 为准）',
+    dict_type   VARCHAR(64)     NOT NULL COMMENT '字典类型编码（冗余，免联查）',
+    label       VARCHAR(64)     NOT NULL COMMENT '显示名称（Excel 导入按此匹配）',
+    value       VARCHAR(64)     NOT NULL COMMENT '存储值（数字码或英文码）',
+    sort_no     INT             NOT NULL DEFAULT 0 COMMENT '排序，越小越前',
+    status      TINYINT         NOT NULL DEFAULT 1 COMMENT '1 启用，0 停用',
+    remark      VARCHAR(255)    NULL,
+    create_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    create_by   BIGINT          NULL,
+    update_by   BIGINT          NULL,
+    version     INT             NOT NULL DEFAULT 0,
+    deleted     TINYINT         NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_dict_type_value (dict_type, value),
+    KEY idx_dict_id (dict_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='数据字典项';
+
 -- =====================================================================
 -- 初始数据：admin（初始口令仅用于引导，首次启动时自动更换）
 -- 下面这行 BCrypt 是「未加固」标记值：应用启动检测到它即生成随机口令并打印一次，
@@ -457,6 +497,7 @@ VALUES
     (21, 20, 'FollowList',     '跟进记录', 'menu',    'crm:follow:list',    '/follow/list',        'follow/list',              'lucide:message-square',  10,  1),
     (22, 15, 'OpportunityBoard','商机看板','menu',    'crm:opportunity:list','/opportunity/board',  'opportunity/board',        'lucide:kanban',          20,  1),
     (23, 0,  'MessageCenter',  '消息提醒', 'menu',    'crm:reminder:list',  '/message',            'message/index',            'lucide:bell',            80,  1),
+    (130, 3, 'DictList',       '数据字典', 'menu',    'system:dict:list',   '/system/dict',        'system/dict/list',         'lucide:book-text',       70,  1),
     -- 客户服务
     (60, 0,  'Support',            '客户服务',   'catalog', NULL,                     '/support',            NULL,                              'lucide:headset',    60,  1),
     (61, 60, 'SupportTicketList',  '工单列表',   'menu',    'crm:ticket:list',       '/support/ticket',     'support/ticket/list',             'lucide:ticket',     10,  1),
@@ -473,3 +514,65 @@ VALUES
     (120, 0,   'CrmReport',        '报表中心',   'catalog', NULL,                  '/report',             NULL,                     'lucide:chart-column',60,  1),
     (121, 120, 'ReportAchievement','销售达成分析','menu',   'crm:report:achievement','/report/analysis',  'report/index',           'lucide:chart-no-axes-combined',10,1)
 ON DUPLICATE KEY UPDATE title = VALUES(title), status = VALUES(status);
+
+-- ---------------------------------------------------------------- 内置字典种子（与迁移 V20261116_01 保持一致；管理入口：系统管理/数据字典）
+INSERT INTO sys_dict (id, dict_type, name, remark, built_in, status)
+VALUES
+    (1, 'lead_source',      '线索来源',   '线索/Excel 导入来源取值', 1, 1),
+    (2, 'lost_reason',      '丢单原因',   '商机丢单归因',           1, 1),
+    (3, 'customer_industry','客户行业',   '客户所属行业',           1, 1),
+    (4, 'customer_scale',   '客户规模',   '客户人员规模',           1, 1),
+    (5, 'customer_region',  '客户区域',   '客户所在区域',           1, 1),
+    (6, 'customer_level',   '客户级别',   '客户分级',               1, 1),
+    (7, 'customer_status',  '客户状态',   '客户生命周期状态',       1, 1),
+    (8, 'follow_type',      '跟进类型',   '跟进记录方式',           1, 1),
+    (9, 'follow_biz_type',  '关联业务类型','跟进/待办多态关联取值',  1, 1)
+ON DUPLICATE KEY UPDATE name = VALUES(name), built_in = 1;
+
+INSERT INTO sys_dict_item (id, dict_id, dict_type, label, value, sort_no, status)
+VALUES
+    (1,  1, 'lead_source', '官网', '1', 10, 1),
+    (2,  1, 'lead_source', '电话', '2', 20, 1),
+    (3,  1, 'lead_source', '广告投放', '3', 30, 1),
+    (4,  1, 'lead_source', '客户转介绍', '4', 40, 1),
+    (5,  1, 'lead_source', '展会活动', '5', 50, 1),
+    (6,  1, 'lead_source', '其他', '6', 60, 1),
+    (7,  2, 'lost_reason', '价格因素', 'PRICE', 10, 1),
+    (8,  2, 'lost_reason', '功能不满足', 'FEATURE', 20, 1),
+    (9,  2, 'lost_reason', '选择了竞争对手', 'COMPETITOR', 30, 1),
+    (10, 2, 'lost_reason', '预算取消', 'BUDGET', 40, 1),
+    (11, 2, 'lost_reason', '失去联系', 'NO_CONTACT', 50, 1),
+    (12, 2, 'lost_reason', '其他', 'OTHER', 60, 1),
+    (13, 3, 'customer_industry', '制造业', '1', 10, 1),
+    (14, 3, 'customer_industry', '互联网', '2', 20, 1),
+    (15, 3, 'customer_industry', '金融', '3', 30, 1),
+    (16, 3, 'customer_industry', '零售消费', '4', 40, 1),
+    (17, 3, 'customer_industry', '医疗健康', '5', 50, 1),
+    (18, 3, 'customer_industry', '教育', '6', 60, 1),
+    (19, 3, 'customer_industry', '其他', '9', 70, 1),
+    (20, 4, 'customer_scale', '1-50 人', '1', 10, 1),
+    (21, 4, 'customer_scale', '51-200 人', '2', 20, 1),
+    (22, 4, 'customer_scale', '201-1000 人', '3', 30, 1),
+    (23, 4, 'customer_scale', '1000 人以上', '4', 40, 1),
+    (24, 5, 'customer_region', '华北', '1', 10, 1),
+    (25, 5, 'customer_region', '华东', '2', 20, 1),
+    (26, 5, 'customer_region', '华南', '3', 30, 1),
+    (27, 5, 'customer_region', '西南', '4', 40, 1),
+    (28, 5, 'customer_region', '海外', '5', 50, 1),
+    (29, 6, 'customer_level', 'A（战略）', '1', 10, 1),
+    (30, 6, 'customer_level', 'B（重点）', '2', 20, 1),
+    (31, 6, 'customer_level', 'C（普通）', '3', 30, 1),
+    (32, 7, 'customer_status', '正常', '1', 10, 1),
+    (33, 7, 'customer_status', '公海', '2', 20, 1),
+    (34, 7, 'customer_status', '已合并', '3', 30, 1),
+    (35, 7, 'customer_status', '成交客户', '4', 40, 1),
+    (36, 8, 'follow_type', '电话', 'PHONE', 10, 1),
+    (37, 8, 'follow_type', '拜访', 'VISIT', 20, 1),
+    (38, 8, 'follow_type', '邮件', 'EMAIL', 30, 1),
+    (39, 8, 'follow_type', '微信', 'WECHAT', 40, 1),
+    (40, 8, 'follow_type', '其他', 'OTHER', 50, 1),
+    (41, 9, 'follow_biz_type', '线索', 'lead', 10, 1),
+    (42, 9, 'follow_biz_type', '客户', 'customer', 20, 1),
+    (43, 9, 'follow_biz_type', '商机', 'opportunity', 30, 1),
+    (44, 9, 'follow_biz_type', '订单', 'order', 40, 1)
+ON DUPLICATE KEY UPDATE dict_id = VALUES(dict_id), label = VALUES(label), status = VALUES(status), sort_no = VALUES(sort_no);

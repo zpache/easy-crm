@@ -22,6 +22,7 @@ public final class PermissionCodes {
             "system:role:delete", "system:role:status",
             "system:menu:list", "system:menu:create", "system:menu:update", "system:menu:delete",
             "system:dept:list", "system:dept:create", "system:dept:update", "system:dept:delete",
+            "system:dict:list", "system:dict:create", "system:dict:update", "system:dict:delete",
             "system:operlog:list", "system:loginlog:list",
 
             // 线索管理

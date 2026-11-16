@@ -25,6 +25,8 @@ import cn.easykits.crm.modules.follow.constant.FollowBizTypes;
 import cn.easykits.crm.modules.lead.constant.LeadSource;
 import cn.easykits.crm.modules.lead.constant.LeadStatus;
 import cn.easykits.crm.modules.lead.dto.ConvertForm;
+import cn.easykits.crm.modules.system.service.DictService;
+import cn.easykits.crm.modules.system.vo.DictItemVO;
 import cn.easykits.crm.modules.lead.dto.LeadCreateForm;
 import cn.easykits.crm.modules.lead.dto.LeadImportRow;
 import cn.easykits.crm.modules.lead.dto.LeadQuery;
@@ -70,6 +72,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
     private final SysUserMapper sysUserMapper;
     private final SysDeptMapper sysDeptMapper;
     private final FollowRecordMapper followRecordMapper;
+    private final DictService dictService;
 
     // ============================================================ 创建 / 更新
 
@@ -387,7 +390,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
     @Transactional(rollbackFor = Exception.class)
     public LeadImportResultVO importExcel(MultipartFile file) {
         LoginUser user = LoginUserContext.require();
-        LeadImportListener listener = new LeadImportListener();
+        LeadImportListener listener = new LeadImportListener(this::isValidSourceLabel);
         try {
             EasyExcel.read(file.getInputStream(), LeadImportRow.class, listener)
                     .sheet()
@@ -430,7 +433,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
             lead.setContactName(StringUtils.hasText(row.getContactName()) ? row.getContactName().trim() : null);
             lead.setPhone(phone);
             lead.setEmail(email);
-            lead.setSource(LeadSource.codeOfLabel(row.getSource()));
+            lead.setSource(resolveSourceCode(row.getSource()));
             lead.setStatus(LeadStatus.NEW.code());
             lead.setOwnerId(user.userId());
             lead.setDeptId(user.deptId());
@@ -445,13 +448,50 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
 
     // ============================================================ 私有工具
 
+    /**
+     * 来源标签 -> 来源码：字典表优先（sys_dict_item.label 匹配），常量类兜底；
+     * 非数字值的字典项无法映射到 source 整数列，返回 null（导入时报错）。
+     */
+    private Integer resolveSourceCode(String label) {
+        if (!StringUtils.hasText(label)) {
+            return null;
+        }
+        String value = dictService.itemsOfType("lead_source").stream()
+                .filter(i -> label.trim().equals(i.label()))
+                .map(DictItemVO::value)
+                .findFirst()
+                .orElse(null);
+        if (value != null) {
+            try {
+                return Integer.valueOf(value);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return LeadSource.codeOfLabel(label);
+    }
+
+    /** 来源码 -> 展示名：字典表优先，常量类兜底 */
+    private String resolveSourceName(Integer code) {
+        if (code == null) {
+            return null;
+        }
+        String label = dictService.labelOf("lead_source", String.valueOf(code));
+        return label != null ? label : LeadSource.labelOf(code);
+    }
+
+    /** 导入监听器的来源标签校验（与 resolveSourceCode 同口径） */
+    private boolean isValidSourceLabel(String label) {
+        return resolveSourceCode(label) != null;
+    }
+
     private void applyForm(Lead lead, String name, String contactName,
                            String phone, String email, Integer source, String remark) {
         lead.setName(name);
         lead.setContactName(contactName);
         lead.setPhone(StringUtils.hasText(phone) ? phone : null);
         lead.setEmail(StringUtils.hasText(email) ? email : null);
-        if (source != null && !LeadSource.isValid(source)) {
+        if (source != null && !LeadSource.isValid(source) && !dictService.hasValue("lead_source", String.valueOf(source))) {
             throw new BizException("来源字典值不合法: " + source);
         }
         lead.setSource(source);
@@ -488,7 +528,7 @@ public class LeadService extends ServiceImpl<LeadMapper, Lead> {
         vo.setPhone(lead.getPhone());
         vo.setEmail(lead.getEmail());
         vo.setSource(lead.getSource());
-        vo.setSourceName(LeadSource.labelOf(lead.getSource()));
+        vo.setSourceName(resolveSourceName(lead.getSource()));
         vo.setStatus(lead.getStatus());
         vo.setStatusName(LeadStatus.of(lead.getStatus()).label());
         vo.setOwnerId(lead.getOwnerId());

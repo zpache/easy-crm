@@ -260,7 +260,7 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
   - 动作：移入 `legacy/` 归档或直接删除；清理 core 静态路由与重复 API；`constants/permissions.ts` 中删除电商权限码，仅保留 CRM / SYSTEM 组
   - 验收：构建无死引用告警；`src/views` 目录与菜单一一对应；权限码常量与后端 `PermissionCodes.ALL` 完全一致
 
-- [ ] **P2-03｜数据字典表未迁（既有报告标记「未启动」）**
+- [x] **P2-03｜数据字典表未迁**（2026-11-16 已落地：见下方「P2-03 实现记录」）
   - 证据：`LeadSource` / `LostReasons` / `CustomerDicts` / `FollowTypes` / `FollowBizTypes` 均为 Java 常量类；无 `sys_dict`；Excel 导入按中文标签硬匹配
   - 动作：按既有报告建议「LeadSource 先行」，建 `sys_dict` / `sys_dict_item` + 管理菜单 + 缓存，常量保留为 fallback
   - 验收：新增来源/行业无需发版；导入标签映射走字典；旧常量 fallback 用例通过
@@ -344,3 +344,31 @@ P0 4 项 + P1 16 项共 **20 项全部落地**（其中 5 项为「主体完成 
 - 发现并处理：8080 曾被改动前的旧实例占用导致 404，已停掉并重启新实例。
 
 - 2026-11-16：P2-02 电商遗留清理完成——`src/views` 现与菜单一一对应（15 个目录均为 CRM 业务页），前端生产构建通过（VITE_EXIT=0）。注：原遗留 `views/message/` 已在批次 2 中被新「消息中心」覆写，本次保留；`api/message.ts`（商城站内信）已删，新消息中心走 `api/crm/reminder.ts`。
+
+
+## P2-03 实现记录（2026-11-16 数据字典）
+
+### 数据库
+- 迁移 `V20261116_01__sys_dict.sql`：`sys_dict`（类型）+ `sys_dict_item`（字典项）建表；9 个内置字典 / 44 个字典项种子；字典管理菜单（id=130，挂系统管理下）；`sys_schema_migration` 台账登记。**幂等验证通过（重复执行两次数据无漂移）**。
+- 种子采用显式主键幂等（与 `sys_permission` 同套路）；`sys_dict_item.dict_id` 为可空冗余列，归属以 `dict_type` 为准。
+- `init.sql` 同步补齐 DDL / 种子 / 菜单（新装库与存量库行为一致）。
+
+### 后端
+- `DictService`：读路径进程内缓存（写操作整体失效）；字典表无有效项时回退 `DictDefaults`（与 LeadSource / LostReasons / CustomerDicts / FollowTypes / FollowBizTypes 常量完全一致），删光字典项不会中断业务取值。
+- `DictController`（`/system/dict`，权限码 `system:dict:list/create/update/delete`）：字典类型分页 / CRUD（内置字典禁删可停用、编码与字典项值唯一性校验、value 创建后不可改）+ 字典项 CRUD。
+- `DictDataController`（`GET /dict-data/{type}`）：登录即可读，供前端下拉与导入校验共用。
+- 线索导入去硬匹配：`LeadService.resolveSourceCode` 字典表优先、常量兜底；`LeadImportListener` 改为注入校验谓词；创建校验与 `sourceName` 展示同口径。
+- `PermissionCodes.ALL` 追加 4 个 `system:dict:*` 权限码。
+
+### 前端
+- `api/system/dict.ts`（管理端 + 业务端取数）、`views/system/dict/{list.vue, data.ts, modules/form.vue, modules/items-drawer.vue, modules/item-form.vue}`：字典类型分页/新增/编辑/删除 + 字典项抽屉（增删改、启停），权限按钮级控制。
+- `constants/permissions.ts` 的 `SYSTEM_PERMISSIONS` 补 dict 四码；新菜单刷新即可见（实时读取）。
+
+### 检验
+| 项 | 结果 |
+| --- | --- |
+| 后端编译（JDK 25） | BUILD SUCCESS |
+| 前端生产构建 | VITE_EXIT=0 |
+| 迁移幂等 | 两次执行数据一致（9 字典 / 44 项，重复行已清理） |
+| 运行时冒烟 | `GET /dict-data/lead_source` 返回 6 项；管理分页 9 字典含项数；未登录 401；重复编码/重复值 4004；内置字典删除被拒；自定义字典增删改与缓存一致性通过；`sourceName` 走字典解析正常；级联逻辑删除生效 |
+| 待办 | 前端各下拉（客户行业/规模/区域/级别、跟进类型等）尚未切到 `getDictData`（现为硬编码选项，与字典值一致）；Excel 导入的标签匹配已字典化，建议后续用真实文件回归一次 |
