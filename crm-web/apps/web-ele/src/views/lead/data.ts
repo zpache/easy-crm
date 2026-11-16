@@ -2,13 +2,27 @@ import type { VbenFormSchema } from '#/adapter/form';
 import type { OnActionClickFn, VxeTableGridColumns } from '#/adapter/vxe-table';
 import type { LeadApi } from '#/api/crm/lead';
 
+import { ref } from 'vue';
+
 import { z } from '#/adapter/form';
 import { LEAD_SOURCES, LEAD_STATUSES } from '#/api/crm/lead';
+import { getCampaignOptions } from '#/api/crm/marketing';
 import { usePermission } from '#/composables/use-permission';
 import { CRM_PERMISSIONS } from '#/constants/permissions';
 
 /** 线索分配权限码（与后端 @PreAuthorize 一致，由统一整合方登记到 permissions.ts） */
 export const LEAD_ASSIGN_PERMISSION = 'crm:lead:assign';
+
+/** 营销活动候选（线索来源归因，活动 ROI 口径依赖此字段） */
+export const campaignOptions = ref<Array<{ id: number; name: string }>>([]);
+
+export async function loadCampaignOptions() {
+  if (campaignOptions.value.length > 0) {
+    return;
+  }
+  const list = await getCampaignOptions();
+  campaignOptions.value = list.map((c) => ({ id: c.id, name: c.name }));
+}
 
 /**
  * 线索创建 / 编辑表单
@@ -50,6 +64,23 @@ export function useFormSchema(): VbenFormSchema[] {
       },
       fieldName: 'source',
       label: '来源',
+    },
+    {
+      component: 'Select',
+      componentProps: () => ({
+        allowClear: true,
+        class: 'w-full',
+        filterOption: (input: string, option: any) =>
+          String(option.label).includes(input),
+        options: campaignOptions.value.map((c) => ({
+          label: c.name,
+          value: c.id,
+        })),
+        showSearch: true,
+      }),
+      fieldName: 'campaignId',
+      label: '来源活动',
+      help: '可选；用于活动效果与 ROI 归因',
     },
     {
       component: 'Textarea',
@@ -206,6 +237,7 @@ export function useColumns<T = LeadApi.Lead>(
     { field: 'phone', title: '手机号', width: 130 },
     { field: 'email', minWidth: 140, title: '邮箱' },
     { field: 'sourceName', title: '来源', width: 100 },
+    { field: 'campaignName', title: '来源活动', width: 150 },
     {
       cellRender: {
         name: 'CellTag',

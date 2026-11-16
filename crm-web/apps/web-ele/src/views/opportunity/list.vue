@@ -19,6 +19,8 @@ import {
   getStages,
 } from '#/api/crm/opportunity';
 import AssignUserDialog from '#/components/assign-user-dialog.vue';
+import { useCrmExport } from '#/composables/use-crm-export';
+import { EXPORT_PERMISSIONS } from '#/constants/crm-batch3-permissions';
 import { OPPORTUNITY_PERMISSIONS } from '#/constants/permissions';
 
 import { loadCustomerOptions, stageOptions, useColumns, useGridFormSchema } from './data';
@@ -46,6 +48,8 @@ const [StageConfigDrawerComp, stageConfigDrawerApi] = useVbenDrawer({
   connectedComponent: StageConfigDrawer,
   destroyOnClose: true,
 });
+
+const { exportNow, exporting } = useCrmExport('opportunities');
 
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions: {
@@ -133,6 +137,12 @@ onMounted(async () => {
   stageOptions.value = await getStages();
   await loadCustomerOptions();
 });
+/** 按当前筛选条件导出（后端 /exports/opportunities，流式 xlsx） */
+async function onExport() {
+  const values = await gridApi.formApi.getValues();
+  await exportNow({ startDate: values?.expectedCloseRange?.[0], endDate: values?.expectedCloseRange?.[1] });
+}
+
 </script>
 
 <template>
@@ -144,6 +154,15 @@ onMounted(async () => {
     <AssignUserDialog v-model="assignOpen" @confirm="handleAssign" />
     <Grid table-title="商机列表">
       <template #toolbar-tools>
+        <ElButton
+          v-access:code="EXPORT_PERMISSIONS.opportunity"
+          :loading="exporting"
+          type="default"
+          @click="onExport"
+        >
+          <Download class="size-5" />
+          导出 Excel
+        </ElButton>
         <ElButton
           v-access:code="OPPORTUNITY_PERMISSIONS.stageManage"
           type="default"

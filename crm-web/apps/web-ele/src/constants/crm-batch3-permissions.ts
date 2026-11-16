@@ -99,3 +99,24 @@ export const SALES_TARGET_PERMISSIONS = {
 export const REPORT_PERMISSIONS = {
   achievement: 'crm:report:achievement',
 } as const;
+
+/** 营销域（活动管理） */
+export const CAMPAIGN_PERMISSIONS = {
+  create: 'crm:campaign:create',
+  delete: 'crm:campaign:delete',
+  list: 'crm:campaign:list',
+  update: 'crm:campaign:update',
+} as const;
+
+/** 报表中心扩展（漏斗 / 排行 / 回款 / 客户分布） */
+export const REPORT_EXT_PERMISSIONS = {
+  customer: 'crm:report:customer',
+  funnel: 'crm:report:funnel',
+  ranking: 'crm:report:ranking',
+  revenue: 'crm:report:revenue',
+} as const;
+
+/** 审批中心（外部审批镜像，只读入口） */
+export const APPROVAL_PERMISSIONS = {
+  list: 'crm:approval:list',
+} as const;

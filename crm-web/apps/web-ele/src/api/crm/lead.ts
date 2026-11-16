@@ -4,6 +4,8 @@ export namespace LeadApi {
   /** 线索记录 */
   export interface Lead {
     [key: string]: any;
+    campaignId?: null | number;
+    campaignName?: string;
     companyDuplicate?: boolean;
     contactName?: string;
     convertedContactId?: null | number;
@@ -30,6 +32,7 @@ export namespace LeadApi {
 
   /** 创建 / 编辑表单 */
   export interface LeadPayload {
+    campaignId?: null | number;
     contactName?: string;
     email?: string;
     name: string;

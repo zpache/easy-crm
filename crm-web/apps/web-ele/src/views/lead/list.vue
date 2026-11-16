@@ -15,7 +15,9 @@ import { ElButton, ElMessage, ElMessageBox } from 'element-plus';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { assignLead, claimLead, getLeadList, toPool } from '#/api/crm/lead';
 import AssignUserDialog from '#/components/assign-user-dialog.vue';
+import { useCrmExport } from '#/composables/use-crm-export';
 import { CRM_PERMISSIONS } from '#/constants/permissions';
+import { EXPORT_PERMISSIONS } from '#/constants/crm-batch3-permissions';
 
 import { useColumns, useGridFormSchema } from './data';
 import ConvertDrawer from './modules/convert.vue';
@@ -36,6 +38,8 @@ const [ImportDrawerComp, importDrawerApi] = useVbenDrawer({
   connectedComponent: ImportDrawer,
   destroyOnClose: true,
 });
+
+const { exportNow, exporting } = useCrmExport('leads');
 
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions: {
@@ -157,6 +161,12 @@ function onConverted() {
   gridApi.query();
 }
 
+/** 按当前筛选条件导出（后端 /exports/leads，流式 xlsx） */
+async function onExport() {
+  const values = await gridApi.formApi.getValues();
+  await exportNow({ keyword: values?.name, status: values?.status });
+}
+
 function onCreate() {
   formDrawerApi.setData({}).open();
 }
@@ -182,6 +192,16 @@ function onImport() {
           @click="onBatchToPool"
         >
           批量放入公海
+        </ElButton>
+        <ElButton
+          v-access:code="EXPORT_PERMISSIONS.lead"
+          :loading="exporting"
+          class="mr-2"
+          type="default"
+          @click="onExport"
+        >
+          <Download class="size-5" />
+          导出 Excel
         </ElButton>
         <ElButton
           v-access:code="CRM_PERMISSIONS.leadImport"

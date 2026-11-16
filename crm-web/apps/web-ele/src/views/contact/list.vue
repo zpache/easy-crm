@@ -8,7 +8,7 @@ import type { ContactApi } from '#/api/crm/contact';
 import { onMounted } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
+import { Download, Plus } from '@vben/icons';
 
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus';
 
@@ -18,6 +18,8 @@ import {
   getContactList,
   setContactPrimary,
 } from '#/api/crm/contact';
+import { useCrmExport } from '#/composables/use-crm-export';
+import { EXPORT_PERMISSIONS } from '#/constants/crm-batch3-permissions';
 import { CONTACT_PERMISSIONS } from '#/constants/permissions';
 
 import { loadCustomerOptions, useColumns, useGridFormSchema } from './data';
@@ -27,6 +29,8 @@ const [FormDrawerComp, formDrawerApi] = useVbenDrawer({
   connectedComponent: FormDrawer,
   destroyOnClose: true,
 });
+
+const { exportNow, exporting } = useCrmExport('contacts');
 
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions: {
@@ -100,6 +104,12 @@ async function onSetPrimary(row: ContactApi.Contact) {
   gridApi.query();
 }
 
+/** 按当前筛选条件导出（后端 /exports/contacts，流式 xlsx） */
+async function onExport() {
+  const values = await gridApi.formApi.getValues();
+  await exportNow({ keyword: values?.name });
+}
+
 function onCreate() {
   formDrawerApi.setData({}).open();
 }
@@ -110,6 +120,16 @@ function onCreate() {
     <FormDrawerComp @success="gridApi.query()" />
     <Grid table-title="联系人列表">
       <template #toolbar-tools>
+        <ElButton
+          v-access:code="EXPORT_PERMISSIONS.contact"
+          :loading="exporting"
+          class="mr-2"
+          type="default"
+          @click="onExport"
+        >
+          <Download class="size-5" />
+          导出 Excel
+        </ElButton>
         <ElButton
           v-access:code="CONTACT_PERMISSIONS.create"
           type="primary"

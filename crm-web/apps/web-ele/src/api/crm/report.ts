@@ -54,6 +54,67 @@ export namespace ReportApi {
     totalOrderAmount: number;
     totalTarget: number;
   }
+
+  /** 漏斗环节（conversionRate 为百分比数值，如 32.15 表示 32.15%） */
+  export interface FunnelStage {
+    amount?: null | number;
+    code: string;
+    conversionRate?: null | number;
+    count: number;
+    label: string;
+  }
+
+  export interface Funnel {
+    stages: FunnelStage[];
+  }
+
+  export interface RankingRow {
+    orderAmount: number;
+    orderCount: number;
+    ownerId: number;
+    ownerName?: string;
+    paymentAmount: number;
+    rank: number;
+    wonAmount: number;
+    wonCount: number;
+  }
+
+  export interface Ranking {
+    rows: RankingRow[];
+  }
+
+  export interface RevenueRow {
+    completionRate?: null | number;
+    invoiceAmount: number;
+    month: string;
+    netAmount: number;
+    paymentAmount: number;
+    planAmount: number;
+    refundAmount: number;
+  }
+
+  export interface Revenue {
+    rows: RevenueRow[];
+    totalInvoiceAmount: number;
+    totalNetAmount: number;
+    totalPaymentAmount: number;
+    totalPlanAmount: number;
+    totalRefundAmount: number;
+  }
+
+  export interface DistributionItem {
+    count: number;
+    key: string;
+    label: string;
+    percent: number;
+  }
+
+  export interface Distribution {
+    dimension: string;
+    dimensionName: string;
+    items: DistributionItem[];
+    total: number;
+  }
 }
 
 // ---------------- 销售目标 ----------------
@@ -88,10 +149,36 @@ async function getAchievement(params: ReportApi.AchievementQuery) {
   });
 }
 
+// ---------------- 漏斗 / 排行 / 回款 / 客户分布 ----------------
+async function getFunnel(params: ReportApi.AchievementQuery) {
+  return requestClient.get<ReportApi.Funnel>('/reports/funnel', { params });
+}
+
+async function getRanking(params: ReportApi.AchievementQuery) {
+  return requestClient.get<ReportApi.Ranking>('/reports/ranking', { params });
+}
+
+async function getRevenue(params: ReportApi.AchievementQuery) {
+  return requestClient.get<ReportApi.Revenue>('/reports/revenue', { params });
+}
+
+async function getCustomerDistribution(
+  params: ReportApi.AchievementQuery & { dimension?: string },
+) {
+  return requestClient.get<ReportApi.Distribution>(
+    '/reports/customer-distribution',
+    { params },
+  );
+}
+
 export {
   createSalesTarget,
   deleteSalesTarget,
   getAchievement,
+  getCustomerDistribution,
+  getFunnel,
+  getRanking,
+  getRevenue,
   getSalesTargetDetail,
   getSalesTargetList,
   updateSalesTarget,

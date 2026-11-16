@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { LeadApi } from '#/api/crm/lead';
 
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -10,7 +10,7 @@ import { ElAlert, ElButton } from 'element-plus';
 import { useVbenForm } from '#/adapter/form';
 import { createLead, updateLead } from '#/api/crm/lead';
 
-import { useFormSchema } from '../data';
+import { loadCampaignOptions, useFormSchema } from '../data';
 
 const emit = defineEmits<{ success: [] }>();
 
@@ -37,6 +37,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const values = await formApi.getValues();
     drawerApi.lock();
     const payload: LeadApi.LeadPayload = {
+      campaignId: values.campaignId ?? undefined,
       contactName: values.contactName || undefined,
       email: values.email || undefined,
       name: values.name,
@@ -66,6 +67,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       formApi.resetForm();
       if (formData.value?.id) {
         formApi.setValues({
+          campaignId: formData.value.campaignId,
           contactName: formData.value.contactName,
           email: formData.value.email,
           name: formData.value.name,
@@ -86,6 +88,9 @@ function confirmDuplicate() {
   duplicateNames.value = [];
   drawerApi.close();
 }
+onMounted(async () => {
+  await loadCampaignOptions();
+});
 </script>
 
 <template>

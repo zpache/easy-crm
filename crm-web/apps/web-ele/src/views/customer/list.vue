@@ -8,7 +8,7 @@ import type { CustomerApi } from '#/api/crm/customer';
 import { ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
+import { Download, Plus } from '@vben/icons';
 
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus';
 
@@ -20,12 +20,16 @@ import {
   getCustomerList,
 } from '#/api/crm/customer';
 import AssignUserDialog from '#/components/assign-user-dialog.vue';
+import { useCrmExport } from '#/composables/use-crm-export';
+import { EXPORT_PERMISSIONS } from '#/constants/crm-batch3-permissions';
 import { CUSTOMER_PERMISSIONS } from '#/constants/permissions';
 
 import { useColumns, useGridFormSchema } from './data';
 import FormDrawer from './modules/form.vue';
 import MergeDrawer from './modules/merge.vue';
 import View360Drawer from './modules/view360.vue';
+
+const { exportNow, exporting } = useCrmExport('customers');
 
 const [FormDrawerComp, formDrawerApi] = useVbenDrawer({
   connectedComponent: FormDrawer,
@@ -160,6 +164,12 @@ async function onToPool(row: CustomerApi.Customer) {
   gridApi.query();
 }
 
+/** 按当前筛选条件导出（后端 /exports/customers，流式 xlsx） */
+async function onExport() {
+  const values = await gridApi.formApi.getValues();
+  await exportNow({ keyword: values?.name, status: values?.status });
+}
+
 function onCreate() {
   formDrawerApi.setData({}).open();
 }
@@ -181,6 +191,16 @@ function onCreate() {
           @click="onBatchToPool"
         >
           批量放入公海
+        </ElButton>
+        <ElButton
+          v-access:code="EXPORT_PERMISSIONS.customer"
+          :loading="exporting"
+          class="mr-2"
+          type="default"
+          @click="onExport"
+        >
+          <Download class="size-5" />
+          导出 Excel
         </ElButton>
         <ElButton
           v-access:code="CUSTOMER_PERMISSIONS.create"

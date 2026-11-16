@@ -8,7 +8,7 @@ import type { OrderApi } from '#/api/crm/order';
 import { onMounted } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
+import { Download, Plus } from '@vben/icons';
 
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus';
 
@@ -19,7 +19,8 @@ import {
   getOrderDetail,
   getOrderList,
 } from '#/api/crm/order';
-import { CRM_ORDER_PERMISSIONS } from '#/constants/crm-batch3-permissions';
+import { useCrmExport } from '#/composables/use-crm-export';
+import { CRM_ORDER_PERMISSIONS, EXPORT_PERMISSIONS } from '#/constants/crm-batch3-permissions';
 
 import { loadCustomerOptions, useColumns, useGridFormSchema } from './data';
 import DetailDrawer from './modules/detail.vue';
@@ -42,6 +43,8 @@ const [DetailDrawerComp, detailDrawerApi] = useVbenDrawer({
   connectedComponent: DetailDrawer,
   destroyOnClose: true,
 });
+
+const { exportNow, exporting } = useCrmExport('orders');
 
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions: {
@@ -148,6 +151,12 @@ async function onDelete(row: OrderApi.Order) {
   gridApi.query();
 }
 
+/** 按当前筛选条件导出（后端 /exports/orders，流式 xlsx） */
+async function onExport() {
+  const values = await gridApi.formApi.getValues();
+  await exportNow({ keyword: values?.orderNo, status: values?.status });
+}
+
 function onCreate() {
   formDrawerApi.setData({}).open();
 }
@@ -159,6 +168,16 @@ function onCreate() {
     <DetailDrawerComp />
     <Grid table-title="订单列表">
       <template #toolbar-tools>
+        <ElButton
+          v-access:code="EXPORT_PERMISSIONS.order"
+          :loading="exporting"
+          class="mr-2"
+          type="default"
+          @click="onExport"
+        >
+          <Download class="size-5" />
+          导出 Excel
+        </ElButton>
         <ElButton
           v-access:code="CRM_ORDER_PERMISSIONS.create"
           type="primary"
