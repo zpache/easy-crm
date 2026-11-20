@@ -1,5 +1,6 @@
 package cn.easykits.crm.modules.order.listener;
 
+import cn.easykits.crm.common.datascope.DataScopeContext;
 import cn.easykits.crm.modules.opportunity.event.OpportunityWonEvent;
 import cn.easykits.crm.modules.order.service.OrderServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,10 @@ public class OpportunityWonOrderListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onOpportunityWon(OpportunityWonEvent event) {
         try {
-            Long orderId = orderService.createDraftFromWon(event);
+            // 异步线程无登录态，而行级数据权限 fail closed：
+            // 必须以系统身份执行，否则 createDraftFromWon 内查询商机主数据被拒绝，deptId 会丢失
+            Long orderId = DataScopeContext.callAsSystem(
+                    () -> orderService.createDraftFromWon(event));
             log.info("[赢单联动] opportunityId={}, name={}, 自动创建订单草稿 id={} 及首期回款计划",
                     event.opportunityId(), event.name(), orderId);
         } catch (Exception e) {
