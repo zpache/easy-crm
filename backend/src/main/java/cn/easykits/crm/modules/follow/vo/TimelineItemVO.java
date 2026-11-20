@@ -41,4 +41,7 @@ public class TimelineItemVO {
     private Long operatorId;
 
     private String operatorName;
+
+    /** 交易金额（订单/回款/开票/退款来源时有效） */
+    private java.math.BigDecimal amount;
 }

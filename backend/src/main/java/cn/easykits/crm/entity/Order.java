@@ -31,6 +31,9 @@ public class Order extends BaseEntity {
 
     private Long contractId;
 
+    /** 关联报价单 ID（从报价成交转单时回填） */
+    private Long quoteId;
+
     private BigDecimal totalAmount;
 
     private Integer status;

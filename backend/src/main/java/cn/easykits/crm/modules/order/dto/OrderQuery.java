@@ -18,6 +18,9 @@ public class OrderQuery {
 
     private Long contractId;
 
+    /** 关联报价单 ID */
+    private Long quoteId;
+
     private Integer status;
 
     /** 订单编号模糊匹配 */

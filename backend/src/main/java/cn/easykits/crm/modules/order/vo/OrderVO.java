@@ -25,6 +25,8 @@ public class OrderVO {
 
     private Long contractId;
 
+    private Long quoteId;
+
     private BigDecimal totalAmount;
 
     private Integer status;

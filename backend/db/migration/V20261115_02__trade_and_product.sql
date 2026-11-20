@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS crm_order (
     customer_id    BIGINT UNSIGNED NOT NULL COMMENT '客户 ID',
     opportunity_id BIGINT UNSIGNED NULL COMMENT '来源商机 ID',
     contract_id    BIGINT UNSIGNED NULL COMMENT '关联合同 ID',
+    quote_id       BIGINT UNSIGNED NULL COMMENT '关联报价单 ID（从报价成交转单时回填）',
     total_amount   DECIMAL(15, 2)  NOT NULL DEFAULT 0 COMMENT '总金额（必须等于明细汇总）',
     status         TINYINT         NOT NULL DEFAULT 0 COMMENT '0 草稿/1 待确认/2 已确认/3 已交付/4 已完成/9 已取消',
     ship_date      DATE            NULL COMMENT '发货日期',
@@ -197,6 +198,7 @@ CREATE TABLE IF NOT EXISTS crm_order (
     KEY idx_customer_id (customer_id),
     KEY idx_opportunity_id (opportunity_id),
     KEY idx_contract_id (contract_id),
+    KEY idx_quote_id (quote_id),
     KEY idx_owner_status (owner_id, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT ='订单';
 

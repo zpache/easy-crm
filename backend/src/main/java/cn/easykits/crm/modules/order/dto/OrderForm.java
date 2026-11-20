@@ -30,6 +30,9 @@ public class OrderForm {
 
     private Long contractId;
 
+    /** 关联报价单 ID（可选，从报价成交转单） */
+    private Long quoteId;
+
     @NotNull(message = "总金额不能为空")
     @DecimalMin(value = "0.00", message = "总金额不能为负数")
     private BigDecimal totalAmount;

@@ -55,6 +55,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> {
     private final PaymentPlanMapper paymentPlanMapper;
     private final CustomerMapper customerMapper;
     private final OpportunityMapper opportunityMapper;
+    private final cn.easykits.crm.mapper.QuoteMapper quoteMapper;
 
     // ============================================================ 管理端 CRUD
 
@@ -162,6 +163,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> {
                         .eq(query.getCustomerId() != null, Order::getCustomerId, query.getCustomerId())
                         .eq(query.getOpportunityId() != null, Order::getOpportunityId, query.getOpportunityId())
                         .eq(query.getContractId() != null, Order::getContractId, query.getContractId())
+                        .eq(query.getQuoteId() != null, Order::getQuoteId, query.getQuoteId())
                         .eq(query.getStatus() != null, Order::getStatus, query.getStatus())
                         .like(StringUtils.hasText(query.getOrderNo()), Order::getOrderNo, query.getOrderNo())
                         .orderByDesc(Order::getId));
@@ -296,6 +298,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> {
         order.setCustomerId(form.getCustomerId());
         order.setOpportunityId(form.getOpportunityId());
         order.setContractId(form.getContractId());
+        // 报价单关联：校验存在性与客户归属（报价必须属于同一客户）
+        if (form.getQuoteId() != null) {
+            cn.easykits.crm.entity.Quote quote = quoteMapper.selectById(form.getQuoteId());
+            if (quote == null) {
+                throw new BizException(ResultCode.DATA_NOT_FOUND, "报价单不存在");
+            }
+            if (!quote.getCustomerId().equals(form.getCustomerId())) {
+                throw new BizException("报价单「%s」不属于当前客户".formatted(quote.getQuoteNo()));
+            }
+            order.setQuoteId(form.getQuoteId());
+        }
         order.setTotalAmount(form.getTotalAmount());
         order.setShipDate(form.getShipDate());
         order.setDeliveryDate(form.getDeliveryDate());
@@ -320,6 +333,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> {
         vo.setCustomerId(order.getCustomerId());
         vo.setOpportunityId(order.getOpportunityId());
         vo.setContractId(order.getContractId());
+        vo.setQuoteId(order.getQuoteId());
         vo.setTotalAmount(order.getTotalAmount());
         vo.setStatus(order.getStatus());
         vo.setStatusName(OrderStatus.name(order.getStatus()));
