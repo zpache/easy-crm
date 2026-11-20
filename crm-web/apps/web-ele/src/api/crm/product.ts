@@ -1,4 +1,5 @@
 import { requestClient } from '#/api/request';
+import { ref } from 'vue';
 
 /** 产品域：产品 / 价目表 / 商机明细 / 报价单 */
 export namespace ProductApi {
@@ -244,6 +245,23 @@ async function updateQuote(id: number, data: ProductApi.QuotePayload) {
 
 async function deleteQuote(id: number) {
   return requestClient.delete(`/quotes/${id}`);
+}
+
+/** 商品下拉共享选项（订单/报价明细引用商品主数据，模块级缓存） */
+export const productOptions = ref<
+  Array<{ id: number; name: string; standardPrice?: number }>
+>([]);
+
+export async function loadProductOptions() {
+  if (productOptions.value.length > 0) {
+    return;
+  }
+  const result = await getProductList({ pageSize: 200, status: 1 });
+  productOptions.value = result.items.map((item: any) => ({
+    id: item.id,
+    name: item.name,
+    standardPrice: item.standardPrice,
+  }));
 }
 
 export {

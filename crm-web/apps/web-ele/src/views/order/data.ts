@@ -1,4 +1,5 @@
 import type { VbenFormSchema } from '#/adapter/form';
+import type { Ref } from 'vue';
 import type { OnActionClickFn, VxeTableGridColumns } from '#/adapter/vxe-table';
 import type { OrderApi } from '#/api/crm/order';
 
@@ -43,7 +44,11 @@ function customerSelectProps() {
  * 订单创建 / 编辑表单（不含明细行，明细由抽屉内的动态表格编辑）。
  * 明细汇总必须等于 totalAmount，保存前在 form.vue 中校验。
  */
-export function useFormSchema(): VbenFormSchema[] {
+export function useFormSchema(
+  opportunityOptions: Ref<Array<{ id: number; name: string }>>,
+  contractOptions: Ref<Array<{ id: number; contractNo: string }>>,
+  quoteOptions: Ref<Array<{ id: number; quoteNo: string }>>,
+): VbenFormSchema[] {
   return [
     {
       component: 'Input',
@@ -59,22 +64,52 @@ export function useFormSchema(): VbenFormSchema[] {
       rules: z.number({ message: '请选择所属客户' }),
     },
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => ({
+        allowClear: true,
+        class: 'w-full',
+        filterOption: (input: string, option: any) =>
+          option.label.includes(input),
+        options: opportunityOptions.value.map((o) => ({
+          label: o.name,
+          value: o.id,
+        })),
+        showSearch: true,
+      }),
       fieldName: 'opportunityId',
-      label: '来源商机 ID',
+      label: '来源商机',
     },
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => ({
+        allowClear: true,
+        class: 'w-full',
+        filterOption: (input: string, option: any) =>
+          option.label.includes(input),
+        options: contractOptions.value.map((c) => ({
+          label: c.contractNo,
+          value: c.id,
+        })),
+        showSearch: true,
+      }),
       fieldName: 'contractId',
-      label: '关联合同 ID',
+      label: '关联合同',
     },
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => ({
+        allowClear: true,
+        class: 'w-full',
+        filterOption: (input: string, option: any) =>
+          option.label.includes(input),
+        options: quoteOptions.value.map((q) => ({
+          label: q.quoteNo,
+          value: q.id,
+        })),
+        showSearch: true,
+      }),
       fieldName: 'quoteId',
-      label: '关联报价 ID',
+      label: '关联报价',
     },
     {
       component: 'InputNumber',

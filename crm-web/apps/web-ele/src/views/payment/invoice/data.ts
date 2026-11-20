@@ -64,10 +64,10 @@ export function useFormSchema(): VbenFormSchema[] {
 export function useGridFormSchema(): VbenFormSchema[] {
   return [
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => ({ allowClear: true, ...orderSelectProps() }),
       fieldName: 'orderId',
-      label: '订单 ID',
+      label: '关联订单',
     },
     {
       component: 'Select',

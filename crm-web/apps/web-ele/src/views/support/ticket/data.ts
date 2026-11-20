@@ -7,6 +7,7 @@ import { ref } from 'vue';
 import { z } from '#/adapter/form';
 import { getContactList } from '#/api/crm/contact';
 import { getCustomerList } from '#/api/crm/customer';
+import { loadOrderOptions, orderSelectProps } from '../../payment/shared/options';
 import {
   SUPPORT_PERMISSIONS,
   TICKET_PRIORITIES,
@@ -19,7 +20,14 @@ import { getUserList } from '#/api/system/user';
 import { usePermission } from '#/composables/use-permission';
 
 /** 客户候选（创建表单 / 查询共用，页面启动时加载一次） */
-export const customerOptions = ref<Array<{ id: number; name: string }>>([]);
+export const orderOptions = ref<Array<{ id: number; orderNo: string; customerId: number }>>([]);
+
+/** 订单候选（工单关联订单用） */
+export async function preloadOrderOptions() {
+  await loadOrderOptions();
+}
+
+<Array<{ id: number; name: string }>>([]);
 
 /** 受理人候选（派单抽屉 / 查询共用） */
 export const userOptions = ref<Array<{ id: number; name: string }>>([]);
@@ -92,10 +100,10 @@ export function useFormSchema(isEdit: boolean): VbenFormSchema[] {
       label: '联系人',
     },
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0 },
+      component: 'Select',
+      componentProps: () => ({ allowClear: true, ...orderSelectProps() }),
       fieldName: 'orderId',
-      label: '关联订单 ID（选填）',
+      label: '关联订单（选填）',
     },
     {
       component: 'Select',

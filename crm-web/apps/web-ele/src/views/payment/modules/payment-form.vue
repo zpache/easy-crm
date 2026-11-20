@@ -4,6 +4,7 @@ import type { PaymentApi } from '#/api/crm/payment';
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
+import { loadOrderOptions } from '../shared/options';
 
 import { useVbenForm } from '#/adapter/form';
 import { createPayment, updatePayment } from '#/api/crm/payment';
@@ -51,8 +52,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       drawerApi.lock(false);
     }
   },
-  onOpenChange(isOpen) {
+  async onOpenChange(isOpen) {
     if (isOpen) {
+      await loadOrderOptions();
       const data = drawerApi.getData<PaymentApi.Payment>();
       formData.value = data && data.id ? data : null;
       formApi.resetForm();

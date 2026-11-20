@@ -8,6 +8,7 @@ import {
   WRITEOFF_STATUSES,
 } from '#/api/crm/payment';
 import { usePermission } from '#/composables/use-permission';
+import { loadOrderOptions, orderSelectProps } from '../shared/options';
 import {
   PAYMENT_PERMISSIONS,
   PAYMENT_PLAN_PERMISSIONS,
@@ -18,11 +19,11 @@ import {
 export function usePlanFormSchema(): VbenFormSchema[] {
   return [
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => orderSelectProps(),
       fieldName: 'orderId',
-      label: '订单 ID',
-      rules: z.number({ message: '订单 ID 不能为空' }),
+      label: '关联订单',
+      rules: z.number({ message: '请选择关联订单' }),
     },
     {
       component: 'InputNumber',
@@ -56,10 +57,10 @@ export function usePlanFormSchema(): VbenFormSchema[] {
 export function usePlanGridFormSchema(): VbenFormSchema[] {
   return [
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => ({ allowClear: true, ...orderSelectProps() }),
       fieldName: 'orderId',
-      label: '订单 ID',
+      label: '关联订单',
     },
     {
       component: 'Select',
@@ -121,10 +122,10 @@ export function usePlanColumns<T = PaymentApi.PaymentPlan>(
 export function usePaymentFormSchema(): VbenFormSchema[] {
   return [
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => orderSelectProps(),
       fieldName: 'orderId',
-      label: '订单 ID',
+      label: '关联订单',
       rules: z.number({ message: '订单 ID 不能为空' }),
     },
     {
@@ -159,10 +160,10 @@ export function usePaymentFormSchema(): VbenFormSchema[] {
 export function usePaymentGridFormSchema(): VbenFormSchema[] {
   return [
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => ({ allowClear: true, ...orderSelectProps() }),
       fieldName: 'orderId',
-      label: '订单 ID',
+      label: '关联订单',
     },
     {
       component: 'Select',

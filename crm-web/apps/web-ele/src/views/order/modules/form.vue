@@ -10,6 +10,8 @@ import {
   ElInput,
   ElInputNumber,
   ElMessage,
+  ElOption,
+  ElSelect,
   ElTable,
   ElTableColumn,
 } from 'element-plus';
@@ -20,6 +22,14 @@ import {
   getOrderDetail,
   updateOrder,
 } from '#/api/crm/order';
+import { getCustomerList } from '#/api/crm/customer';
+import { getContractList } from '#/api/crm/contract';
+import { getOpportunityList } from '#/api/crm/opportunity';
+import {
+  loadProductOptions,
+  productOptions,
+} from '#/api/crm/product';
+import { getQuoteList } from '#/api/crm/product';
 
 import { loadCustomerOptions, useFormSchema } from '../data';
 
@@ -27,6 +37,37 @@ const emit = defineEmits<{ success: [] }>();
 
 const formData = ref<null | OrderApi.Order>(null);
 const items = ref<OrderApi.OrderItem[]>([]);
+const opportunityOptions = ref<Array<{ id: number; name: string }>>([]);
+const contractOptions = ref<Array<{ id: number; contractNo: string }>>([]);
+const quoteOptions = ref<Array<{ id: number; quoteNo: string }>>([]);
+let lastCustomerId: null | number = null;
+
+/** 客户变更 → 重载商机/合同/报价候选，并清空已选值 */
+async function onCustomerChanged(customerId?: number) {
+  opportunityOptions.value = [];
+  contractOptions.value = [];
+  quoteOptions.value = [];
+  if (!customerId) {
+    return;
+  }
+  const [opps, cons, qs] = await Promise.all([
+    getOpportunityList({ customerId, pageSize: 100 }),
+    getContractList({ customerId, pageSize: 100 }),
+    getQuoteList({ customerId, pageSize: 100 }),
+  ]);
+  opportunityOptions.value = opps.items.map((o: any) => ({
+    id: o.id,
+    name: o.name,
+  }));
+  contractOptions.value = cons.items.map((c: any) => ({
+    id: c.id,
+    name: c.contractNo,
+  }));
+  quoteOptions.value = qs.items.map((q: any) => ({
+    id: q.id,
+    quoteNo: q.quoteNo,
+  }));
+}
 
 const getTitle = computed(() =>
   formData.value?.id ? '编辑订单' : '新增订单',
@@ -47,6 +88,17 @@ function newItem(): OrderApi.OrderItem {
   return { productName: '', unitPrice: 0, quantity: 1, discount: 0 };
 }
 
+/** 明细行选择商品：带出名称与标准单价；手输视为新品 */
+function onProductSelected(index: number, productId: number) {
+  const product = productOptions.value.find((p: any) => p.id === productId);
+  if (product && items.value[index]) {
+    items.value[index].productName = product.name;
+    if (product.standardPrice) {
+      items.value[index].unitPrice = product.standardPrice;
+    }
+  }
+}
+
 function addItem() {
   items.value = [...items.value, newItem()];
 }
@@ -56,12 +108,21 @@ function removeItem(index: number) {
 }
 
 const [Form, formApi] = useVbenForm({
+  handleValuesChange: async (values: Record<string, any>) => {
+    // 客户变更 → 级联加载来源候选
+    if (values.customerId && values.customerId !== lastCustomerId) {
+      lastCustomerId = values.customerId;
+      await onCustomerChanged(values.customerId);
+    }
+  },
   layout: 'vertical',
-  schema: useFormSchema(),
+  schema: useFormSchema(opportunityOptions, contractOptions, quoteOptions),
   showDefaultActions: false,
 });
 
 function applyValues(data: OrderApi.Order) {
+  lastCustomerId = data.customerId ?? null;
+  onCustomerChanged(data.customerId);
   formApi.setValues({
     contractId: data.contractId,
     quoteId: (data as any).quoteId ?? undefined,
@@ -165,8 +226,31 @@ onMounted(async () => {
     </div>
     <ElTable :data="items" border size="small">
       <ElTableColumn label="产品名称" min-width="150">
-        <template #default="{ row }">
-          <ElInput v-model="row.productName" placeholder="必填" />
+        <template #default="{ $index, row }">
+          <ElSelect
+            v-model="row.productId"
+            allow-create
+            clearable
+            filterable
+            :remote-method="() => {}"
+            placeholder="选择商品或输入新品名"
+            size="small"
+            @change="(id: number) => onProductSelected($index, id)"
+          >
+            <ElOption
+              v-for="p in productOptions"
+              :key="p.id"
+              :label="p.name"
+              :value="p.id"
+            />
+          </ElSelect>
+          <ElInput
+            v-if="!row.productId"
+            v-model="row.productName"
+            class="mt-1"
+            placeholder="或输入产品名称"
+            size="small"
+          />
         </template>
       </ElTableColumn>
       <ElTableColumn label="单价" width="120">

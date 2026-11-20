@@ -17,6 +17,7 @@ import { getTicketList, SUPPORT_PERMISSIONS } from '#/api/crm/support';
 
 import {
   loadCustomerOptions,
+  preloadOrderOptions,
   loadUserOptions,
   useColumns,
   useGridFormSchema,
@@ -87,7 +88,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 onMounted(async () => {
-  await Promise.all([loadCustomerOptions(), loadUserOptions()]);
+  await Promise.all([loadCustomerOptions(), loadUserOptions(), preloadOrderOptions()]);
 });
 
 function onActionClick(e: OnActionClickParams<TicketApi.Ticket>) {
