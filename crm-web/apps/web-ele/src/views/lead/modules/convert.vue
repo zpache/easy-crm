@@ -6,21 +6,32 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { ElMessageBox } from 'element-plus';
 
 import { useVbenForm } from '#/adapter/form';
-import { convertLead } from '#/api/crm/lead';
-
+import { convertLead, getContactList } from '#/api/crm/contact';
+import { getCustomerList } from '#/api/crm/customer';
 import { useConvertSchema } from '../data';
 
 const emit = defineEmits<{ success: [] }>();
 
 const lead = ref<null | Record<string, any>>(null);
+const customerOptions = ref<Array<{ id: number; name: string }>>([]);
+const contactOptions = ref<Array<{ id: number; name: string }>>([]);
 
 const getTitle = computed(() =>
   lead.value ? `转化线索「${lead.value.name}」` : '转化线索',
 );
 
 const [Form, formApi] = useVbenForm({
+  handleValuesChange: async (values: Record<string, any>) => {
+    if (values.customerMode === 'link' && values.customerId) {
+      const list = await getContactList({ customerId: values.customerId, pageSize: 100 });
+      contactOptions.value = list.items.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+      }));
+    }
+  },
   layout: 'vertical',
-  schema: useConvertSchema(),
+  schema: useConvertSchema(customerOptions, contactOptions),
   showDefaultActions: false,
 });
 
@@ -62,10 +73,15 @@ const [Drawer, drawerApi] = useVbenDrawer({
       drawerApi.lock(false);
     }
   },
-  onOpenChange(isOpen) {
+  async onOpenChange(isOpen) {
     if (isOpen) {
       lead.value = drawerApi.getData<Record<string, any>>();
       formApi.resetForm();
+      const customers = await getCustomerList({ pageSize: 100 });
+      customerOptions.value = customers.items.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+      }));
     }
   },
 });

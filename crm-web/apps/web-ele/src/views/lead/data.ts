@@ -1,4 +1,5 @@
 import type { VbenFormSchema } from '#/adapter/form';
+import type { Ref } from 'vue';
 import type { OnActionClickFn, VxeTableGridColumns } from '#/adapter/vxe-table';
 import type { LeadApi } from '#/api/crm/lead';
 
@@ -98,7 +99,10 @@ export function useFormSchema(): VbenFormSchema[] {
 /**
  * 转化表单：客户 / 联系人可创建或关联（均可选），商机必建（名称缺省取线索名）
  */
-export function useConvertSchema(): VbenFormSchema[] {
+export function useConvertSchema(
+  customerOptions: Ref<Array<{ id: number; name: string }>>,
+  contactOptions: Ref<Array<{ id: number; name: string }>>,
+): VbenFormSchema[] {
   return [
     {
       component: 'RadioGroup',
@@ -126,13 +130,24 @@ export function useConvertSchema(): VbenFormSchema[] {
       label: '客户名称',
     },
     {
-      component: 'InputNumber',
+      component: 'Select',
+      componentProps: () => ({
+        allowClear: true,
+        class: 'w-full',
+        filterOption: (input: string, option: any) =>
+          String(option.label).includes(input),
+        options: customerOptions.value.map((c) => ({
+          label: c.name,
+          value: c.id,
+        })),
+        showSearch: true,
+      }),
       dependencies: {
         show: (values) => values.customerMode === 'link',
         triggerFields: ['customerMode'],
       },
       fieldName: 'customerId',
-      label: '客户 ID',
+      label: '选择客户',
     },
     {
       component: 'RadioGroup',

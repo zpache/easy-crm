@@ -16,6 +16,10 @@ import {
 
 import { useVbenForm } from '#/adapter/form';
 import {
+  loadProductOptions,
+  productOptions,
+} from '#/api/crm/product';
+import {
   createQuote,
   getQuoteDetail,
   updateQuote,
@@ -170,7 +174,29 @@ onMounted(async () => {
     <ElTable :data="items" border size="small">
       <ElTableColumn label="产品名称" min-width="150">
         <template #default="{ row }">
-          <ElInput v-model="row.productName" placeholder="必填" />
+          <ElSelect
+            v-model="row.productId"
+            allow-create
+            clearable
+            filterable
+            placeholder="选择商品或输入新品名"
+            size="small"
+            @change="(id: number) => onProductSelected($index, Number(id))"
+          >
+            <ElOption
+              v-for="p in productOptions"
+              :key="p.id"
+              :label="p.name"
+              :value="p.id"
+            />
+          </ElSelect>
+          <ElInput
+            v-if="!row.productId"
+            v-model="row.productName"
+            class="mt-1"
+            placeholder="或输入产品名称"
+            size="small"
+          />
         </template>
       </ElTableColumn>
       <ElTableColumn label="单价" width="120">

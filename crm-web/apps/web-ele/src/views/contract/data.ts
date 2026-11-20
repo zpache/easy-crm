@@ -1,4 +1,5 @@
 import type { VbenFormSchema } from '#/adapter/form';
+import type { Ref } from 'vue';
 import type { OnActionClickFn, VxeTableGridColumns } from '#/adapter/vxe-table';
 import type { ContractApi } from '#/api/crm/contract';
 
@@ -6,6 +7,10 @@ import { ref } from 'vue';
 
 import { z } from '#/adapter/form';
 import { getCustomerList } from '#/api/crm/customer';
+import { getOpportunityList } from '#/api/crm/opportunity';
+import { getOpportunityList } from '#/api/crm/opportunity';
+import { ref } from 'vue';
+
 import { CONTRACT_STATUSES } from '#/api/crm/contract';
 import { usePermission } from '#/composables/use-permission';
 import { CONTRACT_PERMISSIONS } from '#/constants/crm-batch3-permissions';
@@ -37,8 +42,25 @@ function customerSelectProps() {
   };
 }
 
+/** 来源商机候选（随所选客户级联加载） */
+export const opportunityOptions = ref<Array<{ id: number; name: string }>>([]);
+
+export async function loadOpportunityOptions(customerId?: number) {
+  if (!customerId) {
+    opportunityOptions.value = [];
+    return;
+  }
+  const result = await getOpportunityList({ customerId, pageSize: 100 });
+  opportunityOptions.value = result.items.map((item: any) => ({
+    id: item.id,
+    name: item.name,
+  }));
+}
+
 /** 合同创建 / 编辑表单 */
-export function useFormSchema(): VbenFormSchema[] {
+export function useFormSchema(
+  opportunityOptions: Ref<Array<{ id: number; name: string }>>,
+): VbenFormSchema[] {
   return [
     {
       component: 'Input',
@@ -54,10 +76,20 @@ export function useFormSchema(): VbenFormSchema[] {
       rules: z.number({ message: '请选择所属客户' }),
     },
     {
-      component: 'InputNumber',
-      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      component: 'Select',
+      componentProps: () => ({
+        allowClear: true,
+        class: 'w-full',
+        filterOption: (input: string, option: any) =>
+          String(option.label).includes(input),
+        options: opportunityOptions.value.map((o) => ({
+          label: o.name,
+          value: o.id,
+        })),
+        showSearch: true,
+      }),
       fieldName: 'opportunityId',
-      label: '来源商机 ID',
+      label: '来源商机',
     },
     {
       component: 'InputNumber',

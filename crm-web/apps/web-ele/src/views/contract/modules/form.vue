@@ -8,7 +8,7 @@ import { useVbenDrawer } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import { createContract, updateContract } from '#/api/crm/contract';
 
-import { loadCustomerOptions, useFormSchema } from '../data';
+import { loadCustomerOptions, loadOpportunityOptions, useFormSchema } from '../data';
 
 const emit = defineEmits<{ success: [] }>();
 
@@ -19,8 +19,12 @@ const getTitle = computed(() =>
 );
 
 const [Form, formApi] = useVbenForm({
+  handleValuesChange: async (values: Record<string, any>) => {
+    // 客户变更 → 级联加载该客户的商机候选
+    await loadOpportunityOptions(values.customerId);
+  },
   layout: 'vertical',
-  schema: useFormSchema(),
+  schema: useFormSchema(opportunityOptions),
   showDefaultActions: false,
 });
 
