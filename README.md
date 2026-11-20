@@ -4,7 +4,7 @@
 
 | 子项目 | 说明 | 技术栈 |
 | --- | --- | --- |
-| [backend/](backend/README.md) | 后端（单模块 + 按业务域分包），端口 8080，context-path=/api | Java 25 · Spring Boot 4.1.2 · MyBatis-Plus 3.5.18 · MySQL 8.4 |
+| [backend/](backend/README.md) | 后端（单模块 + 按业务域分包），端口 8085（无 context-path，接口直挂根路径） | Java 25 · Spring Boot 4.1.2 · MyBatis-Plus 3.5.18 · MySQL 8.4 |
 | [crm-web/](crm-web/README.md) | 管理后台前端 | Vben Admin 5.7.0（web-ele）· Vue 3 · Element Plus · pnpm monorepo |
 | 小程序 | 待规划 | uni-app（参照 easy-mall miniprogram） |
 

@@ -13,11 +13,12 @@ export default defineConfig(async () => {
       ],
       server: {
         proxy: {
-          // 后端 context-path 就是 /api，无需 rewrite
+          // 后端已去掉 context-path，开发环境本地转发时剥离 /api 前缀
           '/api': {
             changeOrigin: true,
-            target: 'http://127.0.0.1:8080',
+            target: 'http://127.0.0.1:8085',
             ws: true,
+            rewrite: (path) => path.replace(/^\/api/, ''),
           },
         },
       },

@@ -25,6 +25,6 @@ pnpm check          # 循环依赖 / 依赖 / 类型 / cspell 检查
 
 ## 与后端对接
 
-- 接口前缀 `/api`（后端 context-path），Vben 请求层配置在 `apps/web-ele/src/api`；
+- 前端开发环境通过 `/api` 代理（vite rewrite 剥离前缀），后端已无 context-path；生产 `VITE_GLOB_API_URL=https://crm-api.easykits.cn`；Vben 请求层配置在 `apps/web-ele/src/api`；
 - 统一响应 `{ code, message, data }`，成功码 0；
 - 登录后动态菜单路由由后端下发（参照 easy-mall 的 `/system/menu/routes` + `/user/codes` 按钮权限模式）。
