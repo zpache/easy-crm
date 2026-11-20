@@ -16,19 +16,13 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class OpportunityEventListener {
 
     /**
-     * 赢单事件：TODO（轮次 5 订单模块上线后）自动创建订单与回款计划；当前仅打日志。
+     * 赢单事件：自动建单由 modules/order/listener/OpportunityWonOrderListener 负责
+     * （同事件独立监听，带系统豁免）；本监听器仅保留审计日志。
      */
-    @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onOpportunityWon(OpportunityWonEvent event) {
-        log.info("[商机赢单] opportunityId={}, name={}, customerId={}, actualAmount={}, actualCloseDate={}",
-                event.opportunityId(), event.name(), event.customerId(),
-                event.actualAmount(), event.actualCloseDate());
-        // TODO（轮次 5）：调用订单服务创建订单 + 首期回款计划
-    }
 
     /**
-     * 阶段变更事件：TODO（轮次 4 后续）写商机动态/跟进时间线；当前仅打日志。
+     * 阶段变更事件：阶段历史已由 changeStage 事务内写入 crm_opportunity_stage_log
+     * （时间线聚合的数据源），本监听器仅保留审计日志。
      */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
