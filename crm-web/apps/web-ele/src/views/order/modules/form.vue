@@ -64,6 +64,7 @@ const [Form, formApi] = useVbenForm({
 function applyValues(data: OrderApi.Order) {
   formApi.setValues({
     contractId: data.contractId,
+    quoteId: (data as any).quoteId ?? undefined,
     customerId: data.customerId,
     deliveryDate: data.deliveryDate,
     opportunityId: data.opportunityId,
@@ -98,6 +99,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     drawerApi.lock();
     const payload: OrderApi.OrderPayload = {
       contractId: values.contractId ?? undefined,
+      quoteId: values.quoteId ?? undefined,
       customerId: values.customerId,
       deliveryDate: values.deliveryDate || undefined,
       items: items.value.map((i) => ({

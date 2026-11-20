@@ -6,6 +6,10 @@ import { ref } from 'vue';
 
 import { z } from '#/adapter/form';
 import { LEAD_SOURCES, LEAD_STATUSES } from '#/api/crm/lead';
+import { useDictOptions } from '#/composables/use-dict';
+
+/** 来源下拉：字典 lead_source 优先，常量兜底（模块级缓存） */
+const leadSourceOptions = useDictOptions('lead_source', LEAD_SOURCES);
 import { getCampaignOptions } from '#/api/crm/marketing';
 import { usePermission } from '#/composables/use-permission';
 import { CRM_PERMISSIONS } from '#/constants/permissions';
@@ -57,11 +61,11 @@ export function useFormSchema(): VbenFormSchema[] {
     },
     {
       component: 'Select',
-      componentProps: {
+      componentProps: () => ({
         allowClear: true,
         class: 'w-full',
-        options: [...LEAD_SOURCES],
-      },
+        options: [...leadSourceOptions.value],
+      }),
       fieldName: 'source',
       label: '来源',
     },
@@ -197,10 +201,10 @@ export function useGridFormSchema(): VbenFormSchema[] {
     },
     {
       component: 'Select',
-      componentProps: {
+      componentProps: () => ({
         allowClear: true,
-        options: [...LEAD_SOURCES],
-      },
+        options: [...leadSourceOptions.value],
+      }),
       fieldName: 'source',
       label: '来源',
     },

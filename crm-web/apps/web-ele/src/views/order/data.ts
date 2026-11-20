@@ -72,6 +72,12 @@ export function useFormSchema(): VbenFormSchema[] {
     },
     {
       component: 'InputNumber',
+      componentProps: { class: 'w-full', min: 0, precision: 0 },
+      fieldName: 'quoteId',
+      label: '关联报价 ID',
+    },
+    {
+      component: 'InputNumber',
       componentProps: { class: 'w-full', min: 0, precision: 2 },
       fieldName: 'totalAmount',
       label: '总金额',

@@ -43,6 +43,7 @@ export namespace FollowApi {
     fromStageName?: string;
     id: number;
     operatorId?: null | number;
+    amount?: null | number;
     operatorName?: string;
     source: string;
     time?: string;
@@ -107,6 +108,10 @@ export const TIMELINE_SOURCES = [
   { color: 'primary', label: '跟进记录', value: 'follow' },
   { color: 'warning', label: '待办任务', value: 'task' },
   { color: 'success', label: '阶段变更', value: 'stage_log' },
+  { color: 'primary', label: '订单', value: 'order' },
+  { color: 'success', label: '回款', value: 'payment' },
+  { color: 'processing', label: '开票', value: 'invoice' },
+  { color: 'danger', label: '退款', value: 'refund' },
 ] as const;
 
 /** 跟进记录分页 */

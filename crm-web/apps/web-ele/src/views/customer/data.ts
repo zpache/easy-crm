@@ -10,6 +10,14 @@ import {
   CUSTOMER_SCALE,
   CUSTOMER_STATUS,
 } from '#/api/crm/customer';
+import { useDictOptions } from '#/composables/use-dict';
+
+/** 下拉选项：字典优先（customer_*），常量兜底（模块级缓存） */
+const industryOptions = useDictOptions('customer_industry', CUSTOMER_INDUSTRY);
+const scaleOptions = useDictOptions('customer_scale', CUSTOMER_SCALE);
+const regionOptions = useDictOptions('customer_region', CUSTOMER_REGION);
+const levelOptions = useDictOptions('customer_level', CUSTOMER_LEVEL);
+const customerStatusOptions = useDictOptions('customer_status', CUSTOMER_STATUS);
 import { usePermission } from '#/composables/use-permission';
 import { CUSTOMER_PERMISSIONS } from '#/constants/permissions';
 
@@ -38,19 +46,19 @@ export function useFormSchema(): VbenFormSchema[] {
     },
     {
       component: 'Select',
-      componentProps: { allowClear: true, class: 'w-full', options: [...CUSTOMER_INDUSTRY] },
+      componentProps: () => ({ allowClear: true, class: 'w-full', options: [...industryOptions.value] }),
       fieldName: 'industry',
       label: '行业',
     },
     {
       component: 'Select',
-      componentProps: { allowClear: true, class: 'w-full', options: [...CUSTOMER_SCALE] },
+      componentProps: () => ({ allowClear: true, class: 'w-full', options: [...scaleOptions.value] }),
       fieldName: 'scale',
       label: '规模',
     },
     {
       component: 'Select',
-      componentProps: { allowClear: true, class: 'w-full', options: [...CUSTOMER_REGION] },
+      componentProps: () => ({ allowClear: true, class: 'w-full', options: [...regionOptions.value] }),
       fieldName: 'region',
       label: '区域',
     },
@@ -78,13 +86,13 @@ export function useGridFormSchema(): VbenFormSchema[] {
     { component: 'Input', fieldName: 'name', label: '客户名称' },
     {
       component: 'Select',
-      componentProps: { allowClear: true, options: [...CUSTOMER_INDUSTRY] },
+      componentProps: () => ({ allowClear: true, options: [...industryOptions.value] }),
       fieldName: 'industry',
       label: '行业',
     },
     {
       component: 'Select',
-      componentProps: { allowClear: true, options: [...CUSTOMER_STATUS] },
+      componentProps: () => ({ allowClear: true, options: [...customerStatusOptions.value] }),
       fieldName: 'status',
       label: '状态',
     },

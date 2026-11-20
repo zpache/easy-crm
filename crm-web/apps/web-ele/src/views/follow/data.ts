@@ -8,7 +8,11 @@ import {
   FOLLOW_TYPES,
   TIMELINE_SOURCES,
 } from '#/api/crm/follow';
+import { useDictOptions } from '#/composables/use-dict';
 import { usePermission } from '#/composables/use-permission';
+
+/** 跟进类型下拉：字典 follow_type 优先，常量兜底 */
+const followTypeOptions = useDictOptions('follow_type', FOLLOW_TYPES);
 
 /**
  * 跟进记录权限码（与后端 @PreAuthorize 保持一致）。
@@ -46,7 +50,7 @@ export function useFormSchema(isEdit: boolean): VbenFormSchema[] {
     },
     {
       component: 'Select',
-      componentProps: { options: [...FOLLOW_TYPES] },
+      componentProps: () => ({ options: [...followTypeOptions.value] }),
       fieldName: 'followType',
       label: '跟进类型',
       rules: z.string().min(1, '请选择跟进类型'),

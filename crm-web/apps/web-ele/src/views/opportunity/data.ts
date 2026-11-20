@@ -8,6 +8,10 @@ import { z } from '#/adapter/form';
 import { getContactList } from '#/api/crm/contact';
 import { getCustomerList } from '#/api/crm/customer';
 import { LOST_REASONS } from '#/api/crm/opportunity';
+import { useDictOptions } from '#/composables/use-dict';
+
+/** 丢单原因下拉：字典 lost_reason 优先，常量兜底 */
+const lostReasonOptions = useDictOptions('lost_reason', LOST_REASONS);
 import { usePermission } from '#/composables/use-permission';
 import { OPPORTUNITY_PERMISSIONS } from '#/constants/permissions';
 
@@ -157,11 +161,11 @@ export function useStageChangeSchema(): VbenFormSchema[] {
     },
     {
       component: 'Select',
-      componentProps: {
+      componentProps: () => ({
         allowClear: false,
         class: 'w-full',
-        options: LOST_REASONS.map((r) => ({ ...r })),
-      },
+        options: [...lostReasonOptions.value],
+      }),
       dependencies: {
         rules: (values) =>
           values.targetStageCode === 'LOST'

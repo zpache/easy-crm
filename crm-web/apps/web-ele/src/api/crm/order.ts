@@ -24,7 +24,8 @@ export namespace OrderApi {
 
   export interface Order {
     [key: string]: any;
-    contractId?: null | number;
+    contractId
+    quoteId?: null | number;?: null | number;
     createTime?: string;
     customerId: number;
     customerName?: string;
@@ -44,6 +45,7 @@ export namespace OrderApi {
 
   export interface OrderPayload {
     contractId?: null | number;
+    quoteId?: null | number;
     customerId: number;
     deliveryDate?: string;
     items: OrderItem[];
