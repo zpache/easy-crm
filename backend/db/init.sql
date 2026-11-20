@@ -513,7 +513,10 @@ VALUES
     (113, 110, 'PaymentList',      '回款管理',   'menu',    'crm:payment-plan:list','/trade/payment',     'payment/list',           'lucide:wallet',      30,  1),
     (120, 0,   'CrmReport',        '报表中心',   'catalog', NULL,                  '/report',             NULL,                     'lucide:chart-column',60,  1),
     (121, 120, 'ReportAchievement','销售达成分析','menu',   'crm:report:achievement','/report/analysis',  'report/index',           'lucide:chart-no-axes-combined',10,1)
-ON DUPLICATE KEY UPDATE title = VALUES(title), status = VALUES(status);
+ON DUPLICATE KEY UPDATE
+    pid = VALUES(pid), name = VALUES(name), title = VALUES(title), type = VALUES(type),
+    auth_code = VALUES(auth_code), path = VALUES(path), component = VALUES(component),
+    icon = VALUES(icon), order_no = VALUES(order_no), status = VALUES(status);
 
 -- ---------------------------------------------------------------- 内置字典种子（与迁移 V20261116_01 保持一致；管理入口：系统管理/数据字典）
 INSERT INTO sys_dict (id, dict_type, name, remark, built_in, status)
